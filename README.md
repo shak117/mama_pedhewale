@@ -48,24 +48,6 @@ An authentic, modern e-commerce web application for **Mama Pedhewale**, the icon
 
 ---
 
-## 🚀 How to Run
-
-### Option 1: Double-click `run.bat`
-Simply double-click [run.bat](file:///C:/Users/Admin1/.gemini/antigravity/scratch/mama-pedhewale/run.bat) in the project directory.
-
-### Option 2: Command Line
-Open a terminal in `C:\Users\Admin1\.gemini\antigravity\scratch\mama-pedhewale` and run:
-```bash
-python app.py
-```
-
-Then open your browser at:
-👉 **`http://127.0.0.1:5000`**
-
-To access the Store Admin Portal:
-👉 **`http://127.0.0.1:5000/admin`**
-
----
 
 ## 🧪 Running Automated Tests
 Run the complete unit and integration test suite:
