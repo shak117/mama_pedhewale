@@ -23,9 +23,10 @@ def inject_global_data():
         'nav_categories': categories,
         'current_year': datetime.now().year,
         'store_phone': '+91 9699106264',
+        'store_phone_alt': '+91 7620794973',
         'store_whatsapp': '919699106264',
         'store_email': 'contact@mamakandipedhewale.com',
-        'store_address': 'Wadhe Phata, NH 4 Highway, Pune - Satara Rd, Satara - 415003, Maharashtra'
+        'store_address': 'Near Yashoda College, NH 4 Highway, Wadhe Phata, Pune - Satara Rd, Satara - 415003, Maharashtra'
     }
 
 # ==================== PAGE ROUTES ====================

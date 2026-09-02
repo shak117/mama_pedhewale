@@ -368,39 +368,68 @@
 
                 <!-- Col 4: Store & Delivery Help -->
                 <div class="space-y-3">
-                    <h4 class="font-serif font-bold text-brand-gold tracking-wide text-sm uppercase">Flagship Store</h4>
+                    <h4 class="font-serif font-bold text-brand-gold tracking-wide text-sm uppercase">Original Flagship Store</h4>
                     <div class="space-y-2 text-xs text-amber-200/80">
                         <p class="flex items-start gap-2">
                             <i data-lucide="map-pin" class="w-4 h-4 text-brand-gold shrink-0 mt-0.5"></i>
-                            <span>Shop #12, Shivaji Circle, Rajwada Road, Satara - 415001, Maharashtra</span>
+                            <span>Near Yashoda College, NH 4 Highway, Just 1km from Wadhe Phata, Pune - Satara Rd, Wadhe, Satara - 415003</span>
                         </p>
                         <p class="flex items-center gap-2">
                             <i data-lucide="phone" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <span>{{ store_phone }}</span>
+                            <span>
+                                <a href="tel:+919699106264" class="hover:text-white transition">+91 9699106264</a>
+                                <span class="text-amber-500/60 mx-1">•</span>
+                                <a href="tel:+917620794973" class="hover:text-white transition">+91 7620794973</a>
+                            </span>
+                        </p>
+                        <p class="flex items-center gap-2">
+                            <i data-lucide="mail" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                            <a href="mailto:{{ store_email }}" class="hover:text-white transition">{{ store_email }}</a>
                         </p>
                         <p class="flex items-center gap-2">
                             <i data-lucide="clock" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <span>8:00 AM - 10:30 PM (All 7 Days)</span>
+                            <span>7:00 AM - 11:00 PM (All 7 Days)</span>
                         </p>
-                        <p class="flex items-center gap-2 text-brand-gold">
-                            <i data-lucide="truck" class="w-4 h-4 shrink-0"></i>
-                            <span>Same-day delivery in Satara & Pune</span>
-                        </p>
+
+                        <!-- Google Maps Embed from Original Website -->
+                        <div class="pt-2">
+                            <div class="rounded-xl overflow-hidden border border-brand-gold/40 shadow-sm">
+                                <iframe
+                                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3439.2144374089535!2d74.02117937463431!3d17.723151093046805!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3bc239b8aa27e0af%3A0xad8f51e91f450703!2z4KSu4KS-4KSu4KS-IOCkleCkguCkpuClgCDgpKrgpYfgpKLgpYfgpLXgpL7gpLLgpYcgKE1hbWEgS2FuZGkgUGVkaGUgV2FsZSk!5e1!3m2!1sen!2sin!4v1746604316173!5m2!1sen!2sin"
+                                    width="100%"
+                                    height="120"
+                                    style="border:0;"
+                                    allowfullscreen=""
+                                    loading="lazy"
+                                    referrerpolicy="no-referrer-when-downgrade"
+                                    class="w-full">
+                                </iframe>
+                            </div>
+                            <a href="https://maps.google.com/?q=Mama+Kandi+Pedhe+Wale+Wadhe+Phata+Satara" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 text-[11px] text-brand-gold hover:underline mt-1.5">
+                                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+                                <span>Get Directions on Google Maps</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
             </div>
 
-            <!-- Bottom Copyright & Accepted Payment Methods -->
-            <div class="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-amber-300/60">
-                <div>
-                    © {{ current_year }} <strong>Mama Pedhewale</strong> (मामा पेढेवाले). All rights reserved. Handcrafted with pride in Satara.
+            <!-- Bottom Copyright, Credits & Accepted Payment Methods -->
+            <div class="pt-8 flex flex-col md:flex-row items-center justify-between gap-4 text-xs text-amber-300/70 border-t border-amber-900/40">
+                <div class="text-center md:text-left space-y-1">
+                    <div>
+                        © {{ current_year }} <strong>Mama Pedhewale</strong> (मामा कंदी पेढेवाले). All rights reserved. Handcrafted with pride in Satara.
+                    </div>
+                    <div class="text-xs text-amber-200/90">
+                        Designed &amp; Developed by <span class="text-brand-gold font-bold tracking-wide">Shashank Pawar</span>
+                    </div>
                 </div>
-                <div class="flex items-center gap-3">
-                    <span class="text-[11px]">Accepted:</span>
-                    <span class="px-2 py-0.5 bg-black/40 border border-amber-900 rounded font-semibold text-white">UPI (GPay / PhonePe)</span>
-                    <span class="px-2 py-0.5 bg-black/40 border border-amber-900 rounded font-semibold text-white">Cash on Delivery</span>
-                    <span class="px-2 py-0.5 bg-black/40 border border-amber-900 rounded font-semibold text-white">Net Banking</span>
+                <div class="flex items-center gap-2 sm:gap-3 flex-wrap justify-center">
+                    <span class="text-[11px] text-amber-400/80">Accepted:</span>
+                    <span class="px-2.5 py-1 bg-black/40 border border-amber-900 rounded font-semibold text-white text-[11px]">UPI (GPay / PhonePe)</span>
+                    <span class="px-2.5 py-1 bg-black/40 border border-amber-900 rounded font-semibold text-white text-[11px]">Cash on Delivery</span>
+                    <span class="px-2.5 py-1 bg-black/40 border border-amber-900 rounded font-semibold text-white text-[11px]">Net Banking</span>
                 </div>
             </div>
 
