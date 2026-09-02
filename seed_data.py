@@ -200,7 +200,7 @@ def seed_database():
             "अंजीर ड्रायफ्रूट बर्फी (नो शुगर)",
             "Naturally sweet Turkish figs blended with roasted dry fruits",
             "Zero added refined sugar! Rich Turkish figs cooked gently with chopped Californian almonds, pistachios, and cashew nuts. Delicious guilt-free royal indulgence.",
-            "/static/images/kaju_katli.jpg",
+            "/static/images/anjeer_barfi.jpg",
             "100% No Added Sugar",
             280, 540, 1050,
             30,
