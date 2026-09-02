@@ -3,11 +3,15 @@ import json
 import random
 import string
 from datetime import datetime
-from flask import Flask, render_template, request, jsonify, redirect, url_for
+from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from database import get_db, init_db
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'mama-pedhewale-secret-key-1948'
+
+# Administrative Portal Authentication Credentials
+ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
+ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'MamaSatara@1948')
 
 def generate_order_id():
     suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -189,8 +193,29 @@ def about():
 def contact():
     return render_template('contact.html')
 
+@app.route('/admin/login', methods=['GET', 'POST'])
+def admin_login():
+    error = None
+    if request.method == 'POST':
+        username = request.form.get('username', '').strip()
+        password = request.form.get('password', '').strip()
+        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            return redirect(url_for('admin'))
+        else:
+            error = "Invalid admin username or password. Please try again."
+    return render_template('admin_login.html', error=error)
+
+@app.route('/admin/logout')
+def admin_logout():
+    session.pop('admin_logged_in', None)
+    return redirect(url_for('admin_login'))
+
 @app.route('/admin')
 def admin():
+    if not session.get('admin_logged_in'):
+        return redirect(url_for('admin_login'))
+
     conn = get_db()
     stats = {
         'total_orders': conn.execute("SELECT COUNT(*) FROM orders").fetchone()[0],
@@ -419,6 +444,9 @@ def api_corporate_inquiry():
 
 @app.route('/api/admin/order/<order_id>/status', methods=['POST'])
 def api_admin_update_order_status(order_id):
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
     data = request.get_json() or {}
     new_status = data.get('status')
     payment_status = data.get('payment_status')
@@ -438,6 +466,9 @@ def api_admin_update_order_status(order_id):
 
 @app.route('/api/admin/product/<product_id>/toggle-stock', methods=['POST'])
 def api_admin_toggle_stock(product_id):
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
     conn = get_db()
     cursor = conn.cursor()
     cursor.execute("UPDATE products SET in_stock = CASE WHEN in_stock = 1 THEN 0 ELSE 1 END WHERE id = ?", (product_id,))

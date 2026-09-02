@@ -127,7 +127,10 @@ class MamaPedhewaleTests(unittest.TestCase):
         self.assertEqual(track_resp.status_code, 200)
         self.assertIn(order_id.encode(), track_resp.data)
 
-        # Verify admin status update
+        # Verify admin status update with authenticated session
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+
         update_resp = self.client.post(f'/api/admin/order/{order_id}/status',
             data=json.dumps({'status': 'Packed'}),
             content_type='application/json'
@@ -152,7 +155,26 @@ class MamaPedhewaleTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertTrue(response.get_json()['success'])
 
-    def test_09_admin_toggle_stock(self):
+    def test_09_admin_auth_and_stock(self):
+        # 1. Unauthenticated request to /admin redirects to login
+        with self.client.session_transaction() as sess:
+            sess.pop('admin_logged_in', None)
+
+        unauth_resp = self.client.get('/admin')
+        self.assertEqual(unauth_resp.status_code, 302)
+        self.assertIn('/admin/login', unauth_resp.headers['Location'])
+
+        # 2. Failed login attempt
+        bad_login = self.client.post('/admin/login', data={'username': 'wrong', 'password': 'wrong'})
+        self.assertEqual(bad_login.status_code, 200)
+        self.assertIn(b'Invalid admin username or password', bad_login.data)
+
+        # 3. Successful login redirects to dashboard
+        login_resp = self.client.post('/admin/login', data={'username': 'admin', 'password': 'MamaSatara@1948'}, follow_redirects=True)
+        self.assertEqual(login_resp.status_code, 200)
+        self.assertIn(b'Mama Pedhewale Dashboard', login_resp.data)
+
+        # 4. Authenticated admin can toggle stock
         response = self.client.post('/api/admin/product/satara-kandi-pedha/toggle-stock')
         self.assertEqual(response.status_code, 200)
         data = response.get_json()
@@ -162,10 +184,18 @@ class MamaPedhewaleTests(unittest.TestCase):
         response2 = self.client.post('/api/admin/product/satara-kandi-pedha/toggle-stock')
         self.assertTrue(response2.get_json()['in_stock'])
 
-    def test_10_admin_page(self):
-        response = self.client.get('/admin')
-        self.assertEqual(response.status_code, 200)
-        self.assertIn(b'Mama Pedhewale Dashboard', response.data)
+    def test_10_admin_logout(self):
+        # Authenticate first
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+
+        # Test logout
+        logout_resp = self.client.get('/admin/logout')
+        self.assertEqual(logout_resp.status_code, 302)
+
+        # After logout, accessing /admin is redirected to /admin/login
+        locked_resp = self.client.get('/admin')
+        self.assertEqual(locked_resp.status_code, 302)
 
 if __name__ == '__main__':
     unittest.main()
