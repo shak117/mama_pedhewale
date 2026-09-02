@@ -23,11 +23,11 @@ def seed_database():
             1
         ),
         (
-            "burfi",
-            "Royal Burfis",
+            "barfi",
+            "Royal Barfis",
             "शाही बर्फी व मिठाई",
             "Exquisite mawa confections crafted with pistachios, gulkand, anjir, mango and fresh cream.",
-            "/static/images/official/pista-burfi.jpg",
+            "/static/images/official/pista-barfi.jpg",
             2
         ),
         (
@@ -136,15 +136,15 @@ def seed_database():
             1, 1, 0, 0, 1, 4.8, 122
         ),
 
-        # --- 2. ROYAL BURFIS ---
+        # --- 2. ROYAL BARFIS ---
         (
-            "pista-burfi",
-            "burfi",
-            "Shahi Pista Burfi",
+            "pista-barfi",
+            "barfi",
+            "Shahi Pista Barfi",
             "शाही पिस्ता बर्फी",
             "Rich mawa confection loaded with Iranian pistachios",
             "Luxurious pistachio fudge made with premier grade khoya, blended with finely powdered roasted pistachios and topped with crunchy nut slivers.",
-            "/static/images/official/pista-burfi.jpg",
+            "/static/images/official/pista-barfi.jpg",
             "Royal Treat",
             230, 440, 860,
             15,
@@ -152,13 +152,13 @@ def seed_database():
             1, 0, 1, 1, 1, 4.8, 145
         ),
         (
-            "gulkand-burfi",
-            "burfi",
-            "Royal Gulkand Burfi",
+            "gulkand-barfi",
+            "barfi",
+            "Royal Gulkand Barfi",
             "शाही गुलकंद बर्फी",
             "Infused with organic rose petal preserve and rich khoya",
             "Delightful aromatic confection layered with traditional sweet rose petal gulkand, giving a cooling and refreshing floral flavor in every bite.",
-            "/static/images/official/gulkand-burfi.jpg",
+            "/static/images/official/gulkand-barfi.jpg",
             "Floral Delight",
             220, 420, 820,
             15,
@@ -166,13 +166,13 @@ def seed_database():
             1, 0, 0, 0, 1, 4.7, 98
         ),
         (
-            "malai-burfi",
-            "burfi",
-            "Pure Malai Burfi",
+            "malai-barfi",
+            "barfi",
+            "Pure Malai Barfi",
             "शुद्ध मलाई बर्फी",
             "Velvety soft and mildly sweet fresh milk fudge",
             "Crafted from freshly condensed milk cream, this velvety smooth malai barfi has a delicate sweetness that dissolves effortlessly on your palate.",
-            "/static/images/official/malai-burfi.jpg",
+            "/static/images/official/malai-barfi.jpg",
             "Mild Sweet",
             210, 400, 780,
             12,
@@ -180,13 +180,13 @@ def seed_database():
             1, 0, 0, 0, 1, 4.8, 110
         ),
         (
-            "anjir-burfi",
-            "burfi",
-            "Turkish Anjir Dry Fruit Burfi",
+            "anjir-barfi",
+            "barfi",
+            "Turkish Anjir Dry Fruit Barfi",
             "अंजीर ड्रायफ्रूट बर्फी (नो शुगर)",
             "Naturally sweet Turkish figs blended with roasted dry fruits",
             "Zero added refined sugar! Rich Turkish figs cooked gently with chopped Californian almonds, pistachios, and cashew nuts.",
-            "/static/images/official/anjir-burfi.jpg",
+            "/static/images/official/anjir-barfi.jpg",
             "No Added Sugar",
             280, 540, 1050,
             30,
@@ -194,13 +194,13 @@ def seed_database():
             1, 1, 1, 0, 1, 4.9, 175
         ),
         (
-            "butterscotch-burfi",
-            "burfi",
-            "Butterscotch Praline Burfi",
+            "butterscotch-barfi",
+            "barfi",
+            "Butterscotch Praline Barfi",
             "बटरस्कॉच बर्फी",
             "Crunchy butterscotch praline blended with creamy mawa",
             "Modern twist on classic mithai! Rich mawa barfi infused with crunchy caramelized butterscotch bits and creamy butter caramel aroma.",
-            "/static/images/official/butterscotch-burfi.jpg",
+            "/static/images/official/butterscotch-barfi.jpg",
             "Kids Favorite",
             220, 420, 820,
             18,
@@ -208,13 +208,13 @@ def seed_database():
             1, 0, 0, 0, 1, 4.7, 85
         ),
         (
-            "mango-burfi",
-            "burfi",
-            "Ratnagiri Mango Burfi",
+            "mango-barfi",
+            "barfi",
+            "Ratnagiri Mango Barfi",
             "रत्नागिरी हापूस आंबा बर्फी",
             "Real Alphonso mango pulp blended with rich khoya",
             "Seasonal delight made with 100% natural GI-tagged Ratnagiri Alphonso mango pulp seamlessly blended with rich khoya fudge.",
-            "/static/images/official/mango-burfi.jpg",
+            "/static/images/official/mango-barfi.jpg",
             "Fruit Special",
             230, 440, 860,
             15,
@@ -222,13 +222,13 @@ def seed_database():
             1, 0, 1, 1, 1, 4.9, 130
         ),
         (
-            "strawberry-burfi",
-            "burfi",
-            "Mahabaleshwar Strawberry Burfi",
+            "strawberry-barfi",
+            "barfi",
+            "Mahabaleshwar Strawberry Barfi",
             "महाबळेश्वर स्ट्रॉबेरी बर्फी",
             "Fresh Mahabaleshwar strawberry crush blended with creamy mawa",
             "Celebrated local specialty combining farm-fresh Mahabaleshwar red strawberries with rich Satara khoya for a sweet and tangy gourmet sweet.",
-            "/static/images/official/strawberry-burfi.jpg",
+            "/static/images/official/strawberry-barfi.jpg",
             "Regional Pride",
             220, 420, 820,
             15,
@@ -236,13 +236,13 @@ def seed_database():
             1, 0, 0, 0, 1, 4.8, 92
         ),
         (
-            "karadand-dry-fruit-burfi",
-            "burfi",
-            "Royal Karadand Dry Fruit Burfi",
+            "karadand-dry-fruit-barfi",
+            "barfi",
+            "Royal Karadand Dry Fruit Barfi",
             "शाही कारादंत ड्रायफ्रूट बर्फी",
             "Nutritious dry fruit fudge with edible gum, nuts, and jaggery",
             "Legendary energy-dense confection made with fried edible gum, dried coconut, dates, cashews, almonds, and organic jaggery in pure cow ghee.",
-            "/static/images/official/karadand-dry-fruit-burfi.jpg",
+            "/static/images/official/karadand-dry-fruit-barfi.jpg",
             "Health & Energy",
             260, 500, 980,
             45,
@@ -312,13 +312,13 @@ def seed_database():
             "traditional-mithai",
             "Mama's Shahi Mix Mithaei Gift Box",
             "मामा स्पेशल मिक्स मिठाई बॉक्स",
-            "Festive assortment of Satara Kandi Pedha, Burfis, and Kaju Katli",
-            "The ultimate celebratory gift pack containing a rich assortment of Mama Pedhewale's signature sweets: Kandi Pedha, Kaju Katli, Pista Burfi, and Anjir Burfi.",
+            "Festive assortment of Satara Kandi Pedha, Barfis, and Kaju Katli",
+            "The ultimate celebratory gift pack containing a rich assortment of Mama Pedhewale's signature sweets: Kandi Pedha, Kaju Katli, Pista Barfi, and Anjir Barfi.",
             "/static/images/official/mix-mithaei.jpg",
             "Gift Assortment",
             250, 480, 920,
             20,
-            "Assorted Kandi Pedha, Kaju Katli, Pista Burfi, Anjir Barfi",
+            "Assorted Kandi Pedha, Kaju Katli, Pista Barfi, Anjir Barfi",
             1, 0, 1, 1, 1, 5.0, 290
         ),
 

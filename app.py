@@ -130,7 +130,7 @@ def product_detail(product_id):
 def custom_box():
     conn = get_db()
     # Fetch sweets eligible for custom box
-    sweets = conn.execute("SELECT * FROM products WHERE category_id IN ('pedha', 'burfi', 'traditional-mithai') AND in_stock = 1").fetchall()
+    sweets = conn.execute("SELECT * FROM products WHERE category_id IN ('pedha', 'barfi', 'traditional-mithai') AND in_stock = 1").fetchall()
     conn.close()
     return render_template('custom_box.html', available_sweets=sweets)
 
