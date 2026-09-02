@@ -19,7 +19,7 @@ def seed_database():
             "Signature Pedhas",
             "खास पेढे",
             "Our legendary slow-cooked caramelized mawa pedhas handcrafted since 1948.",
-            "https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQiMka1Pm6xvVhkQTwakf5ogzJWXJCOsFbrdyVKB46T9w&s=10",
+            "/static/images/satara_kandi_pedha.jpg",
             1
         ),
         (
@@ -70,7 +70,7 @@ def seed_database():
             "सातारी खास कांडी पेढा",
             "The iconic caramelized dark brown pedha slow-cooked for 8 hours",
             "Our flagship pride! Prepared using thick buffalo milk mawa, slow-roasted in heavy copper vats until deep amber caramelization, seasoned with fragrant green cardamom and sugar grains. Unmatched authentic taste of Satara.",
-            "https://www.google.com/imgres?q=satara%20special%20kandi%20pedha&imgurl=https%3A%2F%2Fgangdharmithaiwale.co.in%2Fwp-content%2Fuploads%2F2025%2F05%2F58.png&imgrefurl=https%3A%2F%2Fgangdharmithaiwale.co.in%2Fproduct%2Fkandhi-peda%2F&docid=mFXhC9Lwg38p0M&tbnid=JImcDWDlLA_1bM&vet=12ahUKEwiX07XMws-WAxXxTGwGHdySLqAQnPAOegQIdhAA..i&w=800&h=800&hcb=2&ved=2ahUKEwiX07XMws-WAxXxTGwGHdySLqAQnPAOegQIdhAA",
+            "/static/images/satara_kandi_pedha.jpg",
             "Mama's Signature",
             190, 360, 700,
             20,

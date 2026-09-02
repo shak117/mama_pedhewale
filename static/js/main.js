@@ -164,7 +164,7 @@ function renderCartDrawer() {
 
         html += `
             <div class="flex gap-3 pt-3 first:pt-0">
-                <img src="${item.image_url || 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=300'}" alt="${item.name}" class="w-16 h-16 object-cover rounded-xl border border-amber-100 shrink-0">
+                <img src="${item.image_url || '/static/images/satara_kandi_pedha.jpg'}" alt="${item.name}" class="w-16 h-16 object-cover rounded-xl border border-amber-100 shrink-0">
                 <div class="flex-grow flex flex-col justify-between">
                     <div>
                         <div class="flex items-start justify-between">

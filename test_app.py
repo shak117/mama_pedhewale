@@ -89,7 +89,7 @@ class MamaPedhewaleTests(unittest.TestCase):
                     'price': 360,
                     'weight': '500g',
                     'quantity': 2,
-                    'image_url': 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28',
+                    'image_url': '/static/images/satara_kandi_pedha.jpg',
                     'is_custom_box': False
                 },
                 {
