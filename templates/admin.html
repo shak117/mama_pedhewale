@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+
+{% block title %}Store Management & Orders Portal | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-gradient-to-r from-gray-900 to-brand-maroondark text-white py-8 border-b border-amber-900/50">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+            <div class="flex items-center gap-2 text-brand-gold text-xs font-bold uppercase tracking-wider mb-1">
+                <i data-lucide="shield" class="w-4 h-4"></i>
+                <span>Store Administration Portal</span>
+            </div>
+            <h1 class="text-2xl sm:text-3xl font-serif font-bold">Mama Pedhewale Dashboard</h1>
+            <p class="text-xs text-gray-300">Live order fulfillment, inventory stock control, and corporate inquiries.</p>
+        </div>
+        <div>
+            <a href="{{ url_for('products') }}" target="_blank" class="px-4 py-2 bg-amber-500 hover:bg-amber-600 text-gray-900 font-bold text-xs rounded-xl transition flex items-center gap-1.5 shadow">
+                <i data-lucide="external-link" class="w-4 h-4"></i>
+                <span>View Live Store</span>
+            </a>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+    
+    <!-- Top Stats Counter Cards -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-amber-50 text-brand-maroon flex items-center justify-center shrink-0">
+                <i data-lucide="shopping-bag" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-medium">Total Orders Placed</span>
+                <div class="text-2xl font-serif font-bold text-gray-900">{{ stats.total_orders }}</div>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-green-50 text-green-700 flex items-center justify-center shrink-0">
+                <i data-lucide="indian-rupee" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-medium">Recorded Revenue</span>
+                <div class="text-2xl font-serif font-bold text-gray-900">₹{{ stats.total_revenue }}</div>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center shrink-0">
+                <i data-lucide="clock" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-medium">Orders Pending Dispatch</span>
+                <div class="text-2xl font-serif font-bold text-red-600">{{ stats.pending_fulfillment }}</div>
+            </div>
+        </div>
+
+        <div class="bg-white p-5 rounded-2xl shadow-sm border border-gray-100 flex items-center gap-4">
+            <div class="w-12 h-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                <i data-lucide="box" class="w-6 h-6"></i>
+            </div>
+            <div>
+                <span class="text-xs text-gray-500 font-medium">Active Catalog Sweets</span>
+                <div class="text-2xl font-serif font-bold text-gray-900">{{ stats.total_products }}</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Section 1: Orders Fulfillment Table -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+        
+        <div class="p-6 border-b border-gray-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+                <h3 class="font-serif font-bold text-lg text-gray-900">Orders & Fulfillment Queue</h3>
+                <p class="text-xs text-gray-500">Update status as sweet batches are packed and dispatched from Satara kitchen.</p>
+            </div>
+            <!-- Status Filter Pills -->
+            <div class="flex items-center gap-1.5 overflow-x-auto text-xs">
+                <a href="{{ url_for('admin', status='all') }}" class="px-3 py-1.5 rounded-lg font-medium transition {% if current_filter == 'all' %}bg-brand-maroon text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">All</a>
+                <a href="{{ url_for('admin', status='Confirmed') }}" class="px-3 py-1.5 rounded-lg font-medium transition {% if current_filter == 'Confirmed' %}bg-brand-maroon text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Confirmed</a>
+                <a href="{{ url_for('admin', status='Packed') }}" class="px-3 py-1.5 rounded-lg font-medium transition {% if current_filter == 'Packed' %}bg-brand-maroon text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Packed</a>
+                <a href="{{ url_for('admin', status='Dispatched') }}" class="px-3 py-1.5 rounded-lg font-medium transition {% if current_filter == 'Dispatched' %}bg-brand-maroon text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Dispatched</a>
+                <a href="{{ url_for('admin', status='Delivered') }}" class="px-3 py-1.5 rounded-lg font-medium transition {% if current_filter == 'Delivered' %}bg-brand-maroon text-white{% else %}bg-gray-100 text-gray-600 hover:bg-gray-200{% endif %}">Delivered</a>
+            </div>
+        </div>
+
+        {% if orders %}
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-wider border-b border-gray-200">
+                    <tr>
+                        <th class="py-3.5 px-4">Order ID & Date</th>
+                        <th class="py-3.5 px-4">Customer & Location</th>
+                        <th class="py-3.5 px-4">Delivery Target</th>
+                        <th class="py-3.5 px-4">Amount & Mode</th>
+                        <th class="py-3.5 px-4">Fulfillment Status</th>
+                        <th class="py-3.5 px-4 text-center">Action</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for ord in orders %}
+                    <tr class="hover:bg-amber-50/30 transition">
+                        <td class="py-3.5 px-4">
+                            <span class="font-mono font-bold text-brand-maroon text-sm block">{{ ord.id }}</span>
+                            <span class="text-[10px] text-gray-400">{{ ord.created_at[:16] }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="font-bold text-gray-900 block">{{ ord.customer_name }}</span>
+                            <span class="text-gray-500 text-[11px] block">{{ ord.customer_phone }}</span>
+                            <span class="text-gray-400 text-[10px] block truncate max-w-xs">{{ ord.city }} (PIN: {{ ord.pincode }})</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="font-semibold text-gray-800 block">{{ ord.delivery_date or 'Immediate' }}</span>
+                            <span class="text-[10px] text-gray-500">{{ ord.delivery_slot }}</span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <span class="font-serif font-bold text-gray-900 text-sm block">₹{{ ord.total_amount }}</span>
+                            <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase {% if ord.payment_status == 'Paid' %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                                {{ ord.payment_method.upper() }} • {{ ord.payment_status }}
+                            </span>
+                        </td>
+                        <td class="py-3.5 px-4">
+                            <select onchange="updateOrderStatus('{{ ord.id }}', this.value)" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:border-brand-gold cursor-pointer">
+                                <option value="Confirmed" {% if ord.status == 'Confirmed' %}selected{% endif %}>Confirmed</option>
+                                <option value="Packed" {% if ord.status == 'Packed' %}selected{% endif %}>Packed in Kitchen</option>
+                                <option value="Dispatched" {% if ord.status == 'Dispatched' %}selected{% endif %}>Dispatched / In Transit</option>
+                                <option value="Out for Delivery" {% if ord.status == 'Out for Delivery' %}selected{% endif %}>Out for Delivery</option>
+                                <option value="Delivered" {% if ord.status == 'Delivered' %}selected{% endif %}>Delivered ✓</option>
+                                <option value="Cancelled" {% if ord.status == 'Cancelled' %}selected{% endif %}>Cancelled ✗</option>
+                            </select>
+                        </td>
+                        <td class="py-3.5 px-4 text-center">
+                            <a href="{{ url_for('order_success', order_id=ord.id) }}" target="_blank" class="p-1.5 text-brand-maroon hover:bg-amber-100 rounded-lg inline-block transition" title="Print Invoice">
+                                <i data-lucide="printer" class="w-4 h-4"></i>
+                            </a>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <div class="p-8 text-center text-gray-400 text-xs">
+            No orders found for this status.
+        </div>
+        {% endif %}
+
+    </div>
+
+    <!-- Section 2: Catalog Inventory Stock Control -->
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-6 border-b border-gray-100">
+            <h3 class="font-serif font-bold text-lg text-gray-900">Sweet Inventory & Stock Toggle</h3>
+            <p class="text-xs text-gray-500">Instantly toggle in-stock / out-of-stock availability on the public store.</p>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-wider border-b border-gray-200">
+                    <tr>
+                        <th class="py-3 px-4">Sweet Name</th>
+                        <th class="py-3 px-4">Category</th>
+                        <th class="py-3 px-4">250g Price</th>
+                        <th class="py-3 px-4">500g Price</th>
+                        <th class="py-3 px-4">1kg Price</th>
+                        <th class="py-3 px-4">Shelf Life</th>
+                        <th class="py-3 px-4 text-center">Live Stock Status</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for p in products %}
+                    <tr class="hover:bg-amber-50/30 transition">
+                        <td class="py-3 px-4 flex items-center gap-3">
+                            <img src="{{ p.image_url }}" class="w-10 h-10 rounded-lg object-cover border border-amber-100 shrink-0">
+                            <div>
+                                <span class="font-bold text-gray-900 block">{{ p.name }}</span>
+                                <span class="text-[10px] text-amber-700 font-devanagari">{{ p.name_mr }}</span>
+                            </div>
+                        </td>
+                        <td class="py-3 px-4 text-gray-600">{{ p.category_name }}</td>
+                        <td class="py-3 px-4 font-semibold text-gray-800">₹{{ p.price_250g }}</td>
+                        <td class="py-3 px-4 font-semibold text-gray-800">₹{{ p.price_500g }}</td>
+                        <td class="py-3 px-4 font-semibold text-gray-800">₹{{ p.price_1kg }}</td>
+                        <td class="py-3 px-4 text-gray-500">{{ p.shelf_life_days }} days</td>
+                        <td class="py-3 px-4 text-center">
+                            <button type="button" onclick="toggleStock('{{ p.id }}', this)" class="stock-toggle-btn px-3 py-1 rounded-full text-xs font-bold transition {% if p.in_stock %}bg-green-100 text-green-800 hover:bg-green-200{% else %}bg-red-100 text-red-800 hover:bg-red-200{% endif %}">
+                                {% if p.in_stock %}In Stock ✓{% else %}Out of Stock ✗{% endif %}
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Section 3: Corporate Inquiries Table -->
+    {% if inquiries %}
+    <div class="bg-white rounded-3xl shadow-sm border border-gray-200 overflow-hidden">
+        <div class="p-6 border-b border-gray-100">
+            <h3 class="font-serif font-bold text-lg text-gray-900">Corporate & Bulk Gifting Inquiries ({{ inquiries|length }})</h3>
+        </div>
+
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-wider border-b border-gray-200">
+                    <tr>
+                        <th class="py-3 px-4">Date</th>
+                        <th class="py-3 px-4">Company</th>
+                        <th class="py-3 px-4">Contact</th>
+                        <th class="py-3 px-4">Boxes Requested</th>
+                        <th class="py-3 px-4">Target Date</th>
+                        <th class="py-3 px-4">Requirements</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for inq in inquiries %}
+                    <tr>
+                        <td class="py-3 px-4 text-gray-400">{{ inq.created_at[:10] }}</td>
+                        <td class="py-3 px-4 font-bold text-gray-900">{{ inq.company_name }}</td>
+                        <td class="py-3 px-4">
+                            <div>{{ inq.contact_person }}</div>
+                            <div class="text-gray-500 text-[10px]">{{ inq.phone }} • {{ inq.email }}</div>
+                        </td>
+                        <td class="py-3 px-4 font-serif font-bold text-brand-maroon">{{ inq.estimated_boxes }} Boxes</td>
+                        <td class="py-3 px-4">{{ inq.event_date or 'Flexible' }}</td>
+                        <td class="py-3 px-4 text-gray-600 max-w-xs truncate">{{ inq.message or 'Standard tasting samples requested.' }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function updateOrderStatus(orderId, newStatus) {
+        fetch(`/api/admin/order/${orderId}/status`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ status: newStatus })
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                showToast('Status Updated', `Order ${orderId} marked as ${newStatus}`);
+            } else {
+                alert('Failed to update status.');
+            }
+        });
+    }
+
+    function toggleStock(productId, btn) {
+        fetch(`/api/admin/product/${productId}/toggle-stock`, {
+            method: 'POST'
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                if (res.in_stock) {
+                    btn.className = "stock-toggle-btn px-3 py-1 rounded-full text-xs font-bold transition bg-green-100 text-green-800 hover:bg-green-200";
+                    btn.innerText = "In Stock ✓";
+                    showToast('Stock Updated', 'Sweet is now In Stock on public store.');
+                } else {
+                    btn.className = "stock-toggle-btn px-3 py-1 rounded-full text-xs font-bold transition bg-red-100 text-red-800 hover:bg-red-200";
+                    btn.innerText = "Out of Stock ✗";
+                    showToast('Stock Updated', 'Sweet marked as Out of Stock.');
+                }
+            }
+        });
+    }
+</script>
+{% endblock %}

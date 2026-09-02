@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+
+{% block title %}Our 78-Year Legacy | Mama Pedhewale (Since 1948){% endblock %}
+
+{% block content %}
+<div class="bg-gradient-to-b from-amber-50 via-white to-amber-50/40 border-b border-amber-100 py-12">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">A Living Tradition of Satara</span>
+        <h1 class="text-3xl sm:text-5xl font-serif font-bold text-brand-maroon mt-2">The Legacy of Mama Pedhewale</h1>
+        <p class="text-sm sm:text-base text-gray-600 mt-3 leading-relaxed">
+            Seven decades of handcrafting Maharashtra's most celebrated Kandi Pedha using the timeless philosophy of pure buffalo mawa, patient wood-fire reduction, and uncompromising devotion.
+        </p>
+    </div>
+</div>
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-12 space-y-16">
+    
+    <!-- Timeline & Story Block 1 -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+        <div class="space-y-4">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-wider">1948 • The Humble Beginning</span>
+            <h2 class="text-2xl font-serif font-bold text-gray-900">Born at the historic foothills of Ajinkyatara Fort</h2>
+            <p class="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                In 1948, right after India gained independence, our founder lovingly known throughout Satara as <em>"Mama"</em> set up a small sweet counter near Shivaji Circle. Using rich, nutrient-dense buffalo milk sourced directly from local pastoral farmers in the Krishna-Venna river basin, Mama perfected the technique of slow-roasting mawa.
+            </p>
+            <p class="text-xs sm:text-sm text-gray-600 leading-relaxed">
+                While commercial sweet shops cut corners with maida, flour, or milk powder, Mama stayed stubbornly committed to <strong>100% pure mawa</strong>. The pedhas were so rich and fragrant that travelers across Maharashtra made a ritual stop at Satara just to carry home a box of Mama's pedhas.
+            </p>
+        </div>
+        <div class="relative rounded-3xl overflow-hidden shadow-xl border-4 border-amber-100">
+            <img src="https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=800&auto=format&fit=crop&q=80" alt="Authentic Kandi Pedha Craftsmanship" class="w-full h-80 object-cover">
+            <div class="absolute bottom-3 left-3 right-3 bg-black/60 backdrop-blur-xs text-white p-3 rounded-xl text-xs">
+                <strong>Handcrafted in Copper Kadhais:</strong> The distinctive amber-brown hue is achieved naturally through 8 hours of gentle simmering.
+            </div>
+        </div>
+    </div>
+
+    <!-- The 4 Pillars of Purity -->
+    <div class="bg-amber-50/70 p-8 rounded-3xl border border-amber-200">
+        <div class="text-center max-w-xl mx-auto mb-8">
+            <span class="text-xs font-bold text-amber-800 uppercase tracking-widest">Our Unbending Principles</span>
+            <h3 class="text-2xl font-serif font-bold text-brand-maroon mt-1">The Mama Pedhewale Purity Pledge</h3>
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 text-center">
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-amber-100 space-y-2">
+                <div class="w-12 h-12 rounded-full bg-amber-100 text-brand-maroon flex items-center justify-center mx-auto">
+                    <i data-lucide="milk" class="w-6 h-6"></i>
+                </div>
+                <h4 class="font-bold text-sm text-gray-900">Farm-Fresh Milk</h4>
+                <p class="text-[11px] text-gray-500">Collected daily from certified Satara farms. Zero artificial milk powder or adulterants.</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-amber-100 space-y-2">
+                <div class="w-12 h-12 rounded-full bg-amber-100 text-brand-maroon flex items-center justify-center mx-auto">
+                    <i data-lucide="flame" class="w-6 h-6"></i>
+                </div>
+                <h4 class="font-bold text-sm text-gray-900">100% Desi Ghee</h4>
+                <p class="text-[11px] text-gray-500">All laddus, rolls, and halwas are cooked exclusively in pure cow ghee. Zero vanaspati/dalda.</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-amber-100 space-y-2">
+                <div class="w-12 h-12 rounded-full bg-amber-100 text-brand-maroon flex items-center justify-center mx-auto">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <h4 class="font-bold text-sm text-gray-900">Real Spices</h4>
+                <p class="text-[11px] text-gray-500">Hand-ground green cardamom from Idukki, authentic Kashmiri kesar, and freshly grated nutmeg.</p>
+            </div>
+
+            <div class="bg-white p-5 rounded-2xl shadow-xs border border-amber-100 space-y-2">
+                <div class="w-12 h-12 rounded-full bg-amber-100 text-brand-maroon flex items-center justify-center mx-auto">
+                    <i data-lucide="shield-check" class="w-6 h-6"></i>
+                </div>
+                <h4 class="font-bold text-sm text-gray-900">Zero Preservatives</h4>
+                <p class="text-[11px] text-gray-500">No chemical stabilizers or shelf-life extenders. Multi-layered vacuum pack keeps sweets fresh naturally.</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Call to action -->
+    <div class="text-center space-y-4">
+        <h3 class="text-2xl font-serif font-bold text-gray-900">Taste the Authenticity Yourself</h3>
+        <p class="text-xs text-gray-500">Delivered directly to your home anywhere in India within 24 to 72 hours.</p>
+        <a href="{{ url_for('products') }}" class="inline-flex items-center gap-2 px-8 py-3.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition shadow-lg">
+            <span>Explore Sweets Catalog</span>
+            <i data-lucide="arrow-right" class="w-4 h-4 text-brand-gold"></i>
+        </a>
+    </div>
+
+</div>
+{% endblock %}

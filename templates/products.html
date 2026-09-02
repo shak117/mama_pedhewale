@@ -1,0 +1,215 @@
+{% extends "base.html" %}
+
+{% block title %}Our Sweets & Savories Catalog | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-amber-50/40 border-b border-amber-100 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-2xl mx-auto">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Handcrafted In Satara</span>
+            <h1 class="text-3xl sm:text-4xl font-serif font-bold text-brand-maroon mt-1">Our Royal Sweets & Savories</h1>
+            <p class="text-xs sm:text-sm text-gray-600 mt-2">
+                Every sweet is prepared freshly each morning with pure buffalo mawa, real cow ghee, and natural spices.
+            </p>
+        </div>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    
+    <!-- Filter Bar & Search -->
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-amber-100 mb-8 space-y-4">
+        
+        <!-- Category Filter Buttons -->
+        <div class="flex items-center gap-2 overflow-x-auto pb-2 scrollbar-none">
+            <a href="{{ url_for('products', dietary=current_dietary, sort=current_sort) }}" class="px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition {% if not current_category %}bg-brand-maroon text-white shadow{% else %}bg-gray-50 text-gray-700 hover:bg-amber-50{% endif %}">
+                All Sweets ({{ products|length }})
+            </a>
+            {% for cat in categories %}
+            <a href="{{ url_for('products', category=cat.id, dietary=current_dietary, sort=current_sort) }}" class="px-4 py-2 rounded-xl text-xs font-semibold whitespace-nowrap transition {% if current_category == cat.id %}bg-brand-maroon text-white shadow{% else %}bg-gray-50 text-gray-700 hover:bg-amber-50{% endif %}">
+                <span>{{ cat.name }}</span>
+                <span class="text-[10px] opacity-75">({{ cat.name_mr }})</span>
+            </a>
+            {% endfor %}
+        </div>
+
+        <!-- Secondary Filters: Dietary, Sort, Search -->
+        <div class="flex flex-col md:flex-row items-center justify-between gap-4 pt-3 border-t border-gray-100">
+            
+            <!-- Dietary Pills -->
+            <div class="flex items-center gap-2 w-full md:w-auto">
+                <span class="text-xs text-gray-400 font-medium">Dietary:</span>
+                <a href="{{ url_for('products', category=current_category, sort=current_sort) }}" class="px-3 py-1.5 rounded-lg text-xs font-medium transition {% if not current_dietary %}bg-amber-100 text-brand-maroon font-bold{% else %}text-gray-600 hover:bg-gray-100{% endif %}">All</a>
+                <a href="{{ url_for('products', category=current_category, dietary='pure_ghee', sort=current_sort) }}" class="px-3 py-1.5 rounded-lg text-xs font-medium transition {% if current_dietary == 'pure_ghee' %}bg-amber-100 text-brand-maroon font-bold{% else %}text-gray-600 hover:bg-gray-100{% endif %}">✨ Pure Ghee</a>
+                <a href="{{ url_for('products', category=current_category, dietary='sugar_free', sort=current_sort) }}" class="px-3 py-1.5 rounded-lg text-xs font-medium transition {% if current_dietary == 'sugar_free' %}bg-amber-100 text-brand-maroon font-bold{% else %}text-gray-600 hover:bg-gray-100{% endif %}">🌿 No Added Sugar</a>
+            </div>
+
+            <!-- Search input & Sort Dropdown -->
+            <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+                <form action="{{ url_for('products') }}" method="GET" class="relative flex-grow md:w-64">
+                    {% if current_category %}<input type="hidden" name="category" value="{{ current_category }}">{% endif %}
+                    {% if current_dietary %}<input type="hidden" name="dietary" value="{{ current_dietary }}">{% endif %}
+                    {% if current_sort %}<input type="hidden" name="sort" value="{{ current_sort }}">{% endif %}
+                    <input type="text" name="search" value="{{ search_query }}" placeholder="Search sweets..." class="w-full pl-8 pr-3 py-1.5 text-xs rounded-xl bg-gray-50 border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    <i data-lucide="search" class="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-2.5"></i>
+                </form>
+
+                <div class="relative">
+                    <select onchange="window.location.href=this.value" class="text-xs bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-gray-700 focus:outline-none focus:border-brand-gold cursor-pointer">
+                        <option value="{{ url_for('products', category=current_category, dietary=current_dietary, sort='popular', search=search_query) }}" {% if current_sort == 'popular' %}selected{% endif %}>Sort: Bestsellers</option>
+                        <option value="{{ url_for('products', category=current_category, dietary=current_dietary, sort='price_low', search=search_query) }}" {% if current_sort == 'price_low' %}selected{% endif %}>Price: Low to High</option>
+                        <option value="{{ url_for('products', category=current_category, dietary=current_dietary, sort='price_high', search=search_query) }}" {% if current_sort == 'price_high' %}selected{% endif %}>Price: High to Low</option>
+                        <option value="{{ url_for('products', category=current_category, dietary=current_dietary, sort='rating', search=search_query) }}" {% if current_sort == 'rating' %}selected{% endif %}>Highest Rated</option>
+                    </select>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <!-- Products Grid -->
+    {% if products %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {% for item in products %}
+        <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-amber-100 overflow-hidden transition-all duration-300 flex flex-col group">
+            
+            <!-- Image Area -->
+            <div class="relative aspect-4/3 overflow-hidden bg-amber-50">
+                <a href="{{ url_for('product_detail', product_id=item.id) }}">
+                    <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                </a>
+                
+                {% if item.badge %}
+                <div class="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-brand-maroon text-brand-gold text-[10px] font-bold uppercase tracking-wider shadow">
+                    {{ item.badge }}
+                </div>
+                {% endif %}
+
+                {% if item.is_sugar_free %}
+                <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-emerald-700 text-white text-[10px] font-bold shadow">
+                    No Added Sugar
+                </div>
+                {% elif item.is_pure_ghee %}
+                <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-xs text-amber-900 text-[10px] font-semibold shadow">
+                    Pure Ghee
+                </div>
+                {% endif %}
+
+                <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] backdrop-blur-xs">
+                    Shelf Life: {{ item.shelf_life_days }} Days
+                </div>
+            </div>
+
+            <!-- Content -->
+            <div class="p-4 flex-grow flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-1 text-amber-500 text-xs mb-1">
+                        <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>
+                        <span class="font-bold text-gray-800">{{ item.rating }}</span>
+                        <span class="text-gray-400">({{ item.reviews_count }})</span>
+                    </div>
+
+                    <a href="{{ url_for('product_detail', product_id=item.id) }}" class="block">
+                        <h3 class="font-serif font-bold text-base text-gray-900 group-hover:text-brand-maroon transition line-clamp-1">{{ item.name }}</h3>
+                        <div class="text-xs text-amber-700 font-devanagari font-medium mt-0.5">{{ item.name_mr }}</div>
+                    </a>
+
+                    <p class="text-xs text-gray-500 mt-2 line-clamp-2 leading-relaxed">{{ item.tagline }}</p>
+                </div>
+
+                <!-- Dynamic Weight Selector -->
+                <div class="mt-4 pt-3 border-t border-gray-100">
+                    <div class="flex items-center justify-between text-xs text-gray-500 mb-1.5 font-medium">
+                        <span>Select Pack:</span>
+                    </div>
+                    
+                    <div class="grid grid-cols-3 gap-1 mb-3">
+                        <button type="button" onclick="selectCardWeight('{{ item.id }}', '250g', {{ item.price_250g }})" class="weight-btn-{{ item.id }} py-1 text-xs font-semibold rounded-lg border border-brand-maroon bg-brand-maroon text-white transition text-center" data-weight="250g">
+                            250g
+                        </button>
+                        <button type="button" onclick="selectCardWeight('{{ item.id }}', '500g', {{ item.price_500g }})" class="weight-btn-{{ item.id }} py-1 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-brand-gold transition text-center" data-weight="500g">
+                            500g
+                        </button>
+                        <button type="button" onclick="selectCardWeight('{{ item.id }}', '1kg', {{ item.price_1kg }})" class="weight-btn-{{ item.id }} py-1 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-brand-gold transition text-center" data-weight="1kg">
+                            1kg
+                        </button>
+                    </div>
+
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <span class="text-[10px] text-gray-400 block">Price</span>
+                            <div class="text-lg font-serif font-bold text-brand-maroon">
+                                ₹<span id="price-display-{{ item.id }}">{{ item.price_250g }}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="flex items-center gap-1.5">
+                            <a href="{{ url_for('product_detail', product_id=item.id) }}" class="p-2 border border-gray-200 hover:border-brand-gold rounded-xl text-gray-500 hover:text-brand-maroon transition" title="View Details">
+                                <i data-lucide="eye" class="w-4 h-4"></i>
+                            </a>
+                            <button type="button" onclick="addCardToCart('{{ item.id }}', '{{ item.name }}', '{{ item.name_mr }}', '{{ item.image_url }}')" class="px-4 py-2 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl font-medium text-xs transition shadow-sm hover:shadow flex items-center gap-1.5">
+                                <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-brand-gold"></i>
+                                <span>Add</span>
+                            </button>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <div class="bg-white rounded-2xl p-12 text-center border border-amber-100 max-w-lg mx-auto">
+        <div class="w-16 h-16 rounded-full bg-amber-50 flex items-center justify-center text-brand-maroon mx-auto mb-4">
+            <i data-lucide="search-x" class="w-8 h-8"></i>
+        </div>
+        <h3 class="font-serif font-bold text-lg text-gray-800 mb-2">No sweets match your filters</h3>
+        <p class="text-xs text-gray-500 mb-6">Try clearing your dietary filter or search query to see our entire range of Satara sweets.</p>
+        <a href="{{ url_for('products') }}" class="px-5 py-2.5 bg-brand-maroon text-white font-medium text-xs rounded-xl hover:bg-brand-maroondark transition shadow">
+            Reset All Filters
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    const cardWeightState = {};
+
+    function selectCardWeight(productId, weight, price) {
+        cardWeightState[productId] = { weight, price };
+        const priceEl = document.getElementById(`price-display-${productId}`);
+        if (priceEl) priceEl.innerText = price;
+
+        const buttons = document.querySelectorAll(`.weight-btn-${productId}`);
+        buttons.forEach(btn => {
+            if (btn.dataset.weight === weight) {
+                btn.classList.add('bg-brand-maroon', 'text-white', 'border-brand-maroon');
+                btn.classList.remove('bg-white', 'text-gray-700', 'border-gray-200');
+            } else {
+                btn.classList.remove('bg-brand-maroon', 'text-white', 'border-brand-maroon');
+                btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
+            }
+        });
+    }
+
+    function addCardToCart(id, name, name_mr, imageUrl) {
+        const state = cardWeightState[id] || { weight: '250g', price: document.getElementById(`price-display-${id}`).innerText };
+        addToCart({
+            id: id,
+            name: name,
+            name_mr: name_mr,
+            price: state.price,
+            weight: state.weight,
+            image_url: imageUrl,
+            quantity: 1
+        });
+    }
+</script>
+{% endblock %}

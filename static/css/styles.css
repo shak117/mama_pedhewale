@@ -1,0 +1,77 @@
+/* Mama Pedhewale Custom Heritage Styles */
+
+/* Custom subtle pattern background */
+.heritage-pattern {
+    background-color: #FDFBF7;
+    background-image: radial-gradient(#D4AF37 0.75px, transparent 0.75px), radial-gradient(#6A0D25 0.75px, #FDFBF7 0.75px);
+    background-size: 30px 30px;
+    background-position: 0 0, 15px 15px;
+    background-opacity: 0.05;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+::-webkit-scrollbar-track {
+    background: #F7F2E7;
+}
+::-webkit-scrollbar-thumb {
+    background: #D4AF37;
+    border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+    background: #AA820A;
+}
+
+/* Shimmer gold text effect */
+.text-shimmer {
+    background: linear-gradient(90deg, #AA820A 0%, #F5E6AB 50%, #AA820A 100%);
+    background-size: 200% auto;
+    color: transparent;
+    -webkit-background-clip: text;
+    background-clip: text;
+    animation: shimmer 4s linear infinite;
+}
+
+@keyframes shimmer {
+    to {
+        background-position: 200% center;
+    }
+}
+
+/* Custom Box Compartment grid */
+.box-compartment {
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+.box-compartment:hover {
+    transform: translateY(-2px);
+}
+
+/* Print Stylesheet for Invoices */
+@media print {
+    header, footer, #cart-drawer, #search-modal, .no-print {
+        display: none !important;
+    }
+    body {
+        background: white !important;
+        color: black !important;
+    }
+    .print-only {
+        display: block !important;
+    }
+}
+
+/* Pulse animation for special badges */
+@keyframes soft-pulse {
+    0%, 100% {
+        transform: scale(1);
+    }
+    50% {
+        transform: scale(1.05);
+    }
+}
+.animate-soft-pulse {
+    animation: soft-pulse 2s ease-in-out infinite;
+}

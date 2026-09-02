@@ -1,0 +1,298 @@
+{% extends "base.html" %}
+
+{% block title %}Build Your Own Mithai Box (कस्टम मिठाई बॉक्स) | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-gradient-to-r from-amber-50 via-white to-amber-50 border-b border-amber-100 py-8">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Handcrafted Assortment</span>
+        <h1 class="text-3xl sm:text-4xl font-serif font-bold text-brand-maroon mt-1">Build Your Custom Sweet Box</h1>
+        <p class="text-xs sm:text-sm text-gray-600 max-w-xl mx-auto mt-2">
+            Select 4 of your favorite authentic sweets to create your personalized gold-embossed gift box. Handcrafted and packed fresh in Satara.
+        </p>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Left: Sweet Selection Catalog -->
+        <div class="lg:col-span-7 space-y-6">
+            
+            <!-- Box Weight Selection -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-amber-100 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <h3 class="font-serif font-bold text-sm text-brand-maroon">1. Select Box Size</h3>
+                    <p class="text-xs text-gray-500">Each box is split equally into 4 distinct compartments</p>
+                </div>
+                <div class="flex items-center gap-3">
+                    <button type="button" onclick="setCustomBoxWeight('500g')" id="opt-500g" class="box-weight-toggle active px-4 py-2 rounded-xl border-2 border-brand-maroon bg-brand-maroon text-white text-xs font-bold transition shadow-xs">
+                        500g Gift Box
+                    </button>
+                    <button type="button" onclick="setCustomBoxWeight('1kg')" id="opt-1kg" class="box-weight-toggle px-4 py-2 rounded-xl border border-gray-200 bg-white hover:border-brand-gold text-gray-700 text-xs font-bold transition">
+                        1 kg Royal Box
+                    </button>
+                </div>
+            </div>
+
+            <!-- Sweets Grid to Pick From -->
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-amber-100 space-y-4">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h3 class="font-serif font-bold text-sm text-brand-maroon">2. Choose 4 Sweets</h3>
+                    <span class="text-xs text-amber-700 font-medium" id="slots-remaining-text">Click sweets to add to empty slots</span>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[600px] overflow-y-auto pr-1" id="sweets-selection-grid">
+                    {% for sweet in available_sweets %}
+                    <div class="p-3 rounded-xl border border-gray-100 hover:border-brand-gold hover:bg-amber-50/40 transition flex items-center gap-3 group cursor-pointer" onclick="selectSweetForBox('{{ sweet.id }}', '{{ sweet.name }}', '{{ sweet.image_url }}', {{ sweet.price_500g }}, {{ sweet.price_1kg }})">
+                        <img src="{{ sweet.image_url }}" alt="{{ sweet.name }}" class="w-14 h-14 rounded-lg object-cover border border-amber-100 shrink-0">
+                        <div class="flex-grow min-w-0">
+                            <h4 class="font-semibold text-xs text-gray-800 group-hover:text-brand-maroon truncate">{{ sweet.name }}</h4>
+                            <span class="text-[11px] text-amber-700 font-devanagari">{{ sweet.name_mr }}</span>
+                            <div class="text-[10px] text-gray-400 mt-0.5">Shelf life: {{ sweet.shelf_life_days }} days</div>
+                        </div>
+                        <button type="button" class="p-1.5 rounded-lg bg-amber-100 text-brand-maroon group-hover:bg-brand-maroon group-hover:text-white transition shrink-0" title="Add to box">
+                            <i data-lucide="plus" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right: Visual 4-Compartment Box Preview & Summary -->
+        <div class="lg:col-span-5 sticky top-28 space-y-5">
+            
+            <div class="bg-gradient-to-br from-[#450616] to-brand-maroon text-white p-6 rounded-3xl shadow-2xl border-2 border-brand-gold relative overflow-hidden">
+                <div class="absolute -right-8 -top-8 w-40 h-40 rounded-full bg-brand-gold/10 blur-2xl pointer-events-none"></div>
+
+                <div class="flex items-center justify-between mb-4 border-b border-brand-gold/30 pb-3">
+                    <div>
+                        <span class="text-[10px] uppercase font-bold tracking-widest text-brand-gold">Preview</span>
+                        <h3 class="font-serif font-bold text-lg text-white">4-Compartment Mithai Box</h3>
+                    </div>
+                    <span id="active-box-badge" class="px-2.5 py-1 bg-brand-gold text-brand-maroondark rounded-lg text-xs font-bold">500g Box</span>
+                </div>
+
+                <!-- 4 Interactive Slots Grid -->
+                <div class="grid grid-cols-2 gap-3 p-3 bg-black/40 rounded-2xl border border-brand-gold/40 mb-5">
+                    
+                    <!-- Slot 0 -->
+                    <div id="slot-0" onclick="clearSlot(0)" class="box-compartment bg-white/10 hover:bg-white/15 border-2 border-dashed border-brand-gold/40 rounded-xl p-3 text-center flex flex-col items-center justify-center min-h-[120px] cursor-pointer transition relative group">
+                        <i data-lucide="plus-circle" class="w-6 h-6 text-brand-gold mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-xs font-semibold text-amber-200">Slot 1</span>
+                        <span class="text-[10px] text-gray-400">Empty</span>
+                    </div>
+
+                    <!-- Slot 1 -->
+                    <div id="slot-1" onclick="clearSlot(1)" class="box-compartment bg-white/10 hover:bg-white/15 border-2 border-dashed border-brand-gold/40 rounded-xl p-3 text-center flex flex-col items-center justify-center min-h-[120px] cursor-pointer transition relative group">
+                        <i data-lucide="plus-circle" class="w-6 h-6 text-brand-gold mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-xs font-semibold text-amber-200">Slot 2</span>
+                        <span class="text-[10px] text-gray-400">Empty</span>
+                    </div>
+
+                    <!-- Slot 2 -->
+                    <div id="slot-2" onclick="clearSlot(2)" class="box-compartment bg-white/10 hover:bg-white/15 border-2 border-dashed border-brand-gold/40 rounded-xl p-3 text-center flex flex-col items-center justify-center min-h-[120px] cursor-pointer transition relative group">
+                        <i data-lucide="plus-circle" class="w-6 h-6 text-brand-gold mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-xs font-semibold text-amber-200">Slot 3</span>
+                        <span class="text-[10px] text-gray-400">Empty</span>
+                    </div>
+
+                    <!-- Slot 3 -->
+                    <div id="slot-3" onclick="clearSlot(3)" class="box-compartment bg-white/10 hover:bg-white/15 border-2 border-dashed border-brand-gold/40 rounded-xl p-3 text-center flex flex-col items-center justify-center min-h-[120px] cursor-pointer transition relative group">
+                        <i data-lucide="plus-circle" class="w-6 h-6 text-brand-gold mb-1 group-hover:scale-110 transition"></i>
+                        <span class="text-xs font-semibold text-amber-200">Slot 4</span>
+                        <span class="text-[10px] text-gray-400">Empty</span>
+                    </div>
+
+                </div>
+
+                <!-- Price & Checkout for Custom Box -->
+                <div class="space-y-3 pt-2 border-t border-brand-gold/30">
+                    <div class="flex items-baseline justify-between">
+                        <span class="text-xs text-amber-200">Custom Box Price:</span>
+                        <span class="font-serif text-2xl font-bold text-brand-gold">₹<span id="custom-box-total-price">0</span></span>
+                    </div>
+
+                    <button type="button" id="add-custom-box-btn" onclick="addCustomBoxToCart()" disabled class="w-full py-3.5 px-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold rounded-xl text-sm transition shadow-lg flex items-center justify-center gap-2 opacity-50 cursor-not-allowed">
+                        <i data-lucide="shopping-bag" class="w-4 h-4"></i>
+                        <span id="custom-box-btn-text">Select 4 Sweets to Add</span>
+                    </button>
+                    
+                    <button type="button" onclick="resetCustomBox()" class="w-full text-center text-xs text-amber-200/70 hover:text-white transition">
+                        Reset All Slots
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Packaging Assurance -->
+            <div class="bg-amber-50 p-4 rounded-2xl border border-amber-200/70 text-xs text-gray-700 flex items-center gap-3">
+                <i data-lucide="gift" class="w-8 h-8 text-brand-maroon shrink-0"></i>
+                <p>Delivered in an authentic gold-stamped royal box with airtight inner seal for 100% freshness.</p>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let currentBoxWeight = '500g';
+    const boxSlots = [null, null, null, null];
+
+    function setCustomBoxWeight(weight) {
+        currentBoxWeight = weight;
+        
+        // Update pills
+        const btn500 = document.getElementById('opt-500g');
+        const btn1k = document.getElementById('opt-1kg');
+        const badge = document.getElementById('active-box-badge');
+
+        if (weight === '500g') {
+            btn500.className = "box-weight-toggle active px-4 py-2 rounded-xl border-2 border-brand-maroon bg-brand-maroon text-white text-xs font-bold transition shadow-xs";
+            btn1k.className = "box-weight-toggle px-4 py-2 rounded-xl border border-gray-200 bg-white hover:border-brand-gold text-gray-700 text-xs font-bold transition";
+            badge.innerText = "500g Box";
+        } else {
+            btn1k.className = "box-weight-toggle active px-4 py-2 rounded-xl border-2 border-brand-maroon bg-brand-maroon text-white text-xs font-bold transition shadow-xs";
+            btn500.className = "box-weight-toggle px-4 py-2 rounded-xl border border-gray-200 bg-white hover:border-brand-gold text-gray-700 text-xs font-bold transition";
+            badge.innerText = "1 kg Royal Box";
+        }
+
+        updateCustomBoxUI();
+    }
+
+    function selectSweetForBox(id, name, imageUrl, price500, price1k) {
+        // Find first empty slot
+        const emptyIndex = boxSlots.findIndex(slot => slot === null);
+        if (emptyIndex === -1) {
+            showToast('All 4 Slots Full!', 'Click on any slot in the box to remove or replace it.', 'info');
+            return;
+        }
+
+        boxSlots[emptyIndex] = {
+            id: id,
+            name: name,
+            imageUrl: imageUrl,
+            price500: price500,
+            price1k: price1k
+        };
+
+        updateCustomBoxUI();
+        showToast('Slot Filled', `${name} added to Slot ${emptyIndex + 1}.`);
+    }
+
+    function clearSlot(index) {
+        if (boxSlots[index]) {
+            boxSlots[index] = null;
+            updateCustomBoxUI();
+            showToast('Slot Emptied', `Slot ${index + 1} cleared.`);
+        }
+    }
+
+    function resetCustomBox() {
+        for (let i = 0; i < 4; i++) {
+            boxSlots[i] = null;
+        }
+        updateCustomBoxUI();
+    }
+
+    function updateCustomBoxUI() {
+        let filledCount = 0;
+        let totalPrice = 0;
+
+        for (let i = 0; i < 4; i++) {
+            const slotEl = document.getElementById(`slot-${i}`);
+            const sweet = boxSlots[i];
+
+            if (sweet) {
+                filledCount++;
+                const itemPortionPrice = currentBoxWeight === '500g' ? (sweet.price500 / 4) : (sweet.price1k / 4);
+                totalPrice += itemPortionPrice;
+
+                slotEl.innerHTML = `
+                    <img src="${sweet.imageUrl}" class="w-12 h-12 rounded-lg object-cover mx-auto mb-1 border border-brand-gold">
+                    <span class="text-xs font-bold text-white block line-clamp-1">${sweet.name}</span>
+                    <span class="text-[10px] text-brand-gold block font-semibold">${currentBoxWeight === '500g' ? '125g' : '250g'}</span>
+                    <span class="text-[9px] text-red-300 group-hover:text-red-400 mt-0.5">Click to remove</span>
+                `;
+                slotEl.classList.remove('border-dashed');
+                slotEl.classList.add('border-solid', 'bg-white/20');
+            } else {
+                slotEl.innerHTML = `
+                    <i data-lucide="plus-circle" class="w-6 h-6 text-brand-gold mb-1 group-hover:scale-110 transition"></i>
+                    <span class="text-xs font-semibold text-amber-200">Slot ${i + 1}</span>
+                    <span class="text-[10px] text-gray-400">Empty</span>
+                `;
+                slotEl.classList.add('border-dashed');
+                slotEl.classList.remove('border-solid', 'bg-white/20');
+            }
+        }
+
+        // Round custom box price to nice figure
+        const roundedPrice = Math.round(totalPrice);
+        document.getElementById('custom-box-total-price').innerText = roundedPrice;
+
+        const btn = document.getElementById('add-custom-box-btn');
+        const btnText = document.getElementById('custom-box-btn-text');
+        const slotsText = document.getElementById('slots-remaining-text');
+
+        if (filledCount === 4) {
+            btn.disabled = false;
+            btn.classList.remove('opacity-50', 'cursor-not-allowed');
+            btnText.innerText = `Add Custom ${currentBoxWeight} Box (₹${roundedPrice})`;
+            slotsText.innerText = "All 4 slots filled! Ready to add.";
+            slotsText.className = "text-xs text-green-700 font-bold";
+        } else {
+            btn.disabled = true;
+            btn.classList.add('opacity-50', 'cursor-not-allowed');
+            btnText.innerText = `Select ${4 - filledCount} More Sweet${4 - filledCount > 1 ? 's' : ''}`;
+            slotsText.innerText = `${4 - filledCount} slots remaining in your box`;
+            slotsText.className = "text-xs text-amber-700 font-medium";
+        }
+
+        if (window.lucide) lucide.createIcons();
+    }
+
+    function addCustomBoxToCart() {
+        if (boxSlots.includes(null)) {
+            showToast('Incomplete Box', 'Please fill all 4 slots before adding to cart.', 'warning');
+            return;
+        }
+
+        const price = parseInt(document.getElementById('custom-box-total-price').innerText);
+        const contents = {};
+        boxSlots.forEach((s, idx) => {
+            contents[`slot_${idx+1}`] = { id: s.id, name: s.name };
+        });
+
+        addToCart({
+            id: `custom-box-${Date.now()}`,
+            name: `Custom Assorted Mithai Box (${currentBoxWeight})`,
+            name_mr: 'कस्टम मिठाई बॉक्स',
+            price: price,
+            weight: currentBoxWeight,
+            image_url: boxSlots[0].imageUrl,
+            quantity: 1,
+            is_custom_box: true,
+            box_contents: contents
+        });
+
+        // Trigger confetti celebration
+        if (window.confetti) {
+            confetti({
+                particleCount: 80,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        updateCustomBoxUI();
+    });
+</script>
+{% endblock %}

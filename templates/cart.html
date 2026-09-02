@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+
+{% block title %}Your Sweet Cart | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-amber-50/40 border-b border-amber-100 py-6">
+    <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="text-2xl sm:text-3xl font-serif font-bold text-brand-maroon">Your Mithai Basket</h1>
+        <p class="text-xs text-gray-500 mt-1">Review your selected sweets and proceed to checkout.</p>
+    </div>
+</div>
+
+<div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    
+    <div id="full-cart-empty" class="hidden bg-white p-12 rounded-3xl border border-amber-100 text-center max-w-md mx-auto">
+        <div class="w-16 h-16 rounded-full bg-amber-50 text-brand-maroon flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="shopping-bag" class="w-8 h-8"></i>
+        </div>
+        <h3 class="font-serif font-bold text-lg text-gray-900 mb-1">Your cart is currently empty</h3>
+        <p class="text-xs text-gray-500 mb-6">Explore our authentic Satara pedhas and pure ghee laddus.</p>
+        <a href="{{ url_for('products') }}" class="px-5 py-2.5 bg-brand-maroon text-white text-xs font-semibold rounded-xl hover:bg-brand-maroondark transition shadow">Browse Sweets Catalog</a>
+    </div>
+
+    <div id="full-cart-content" class="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+        
+        <!-- Cart Items List -->
+        <div class="lg:col-span-8 bg-white p-6 rounded-3xl shadow-sm border border-amber-100">
+            <div class="flex items-center justify-between border-b border-gray-100 pb-4 mb-4">
+                <h3 class="font-serif font-bold text-base text-gray-900">Selected Sweets (<span id="fc-count">0</span>)</h3>
+                <button onclick="clearCart(); renderFullCartPage();" class="text-xs text-red-600 hover:underline">Clear Basket</button>
+            </div>
+
+            <div id="fc-items-container" class="divide-y divide-gray-100 space-y-4">
+                <!-- Dynamically populated -->
+            </div>
+        </div>
+
+        <!-- Order Summary Side Card -->
+        <div class="lg:col-span-4 bg-white p-6 rounded-3xl shadow-sm border border-amber-100 space-y-4 sticky top-28">
+            <h3 class="font-serif font-bold text-base text-brand-maroon border-b border-gray-100 pb-3">Price Summary</h3>
+            
+            <div class="space-y-2 text-xs text-gray-600">
+                <div class="flex justify-between">
+                    <span>Items Subtotal</span>
+                    <span class="font-bold text-gray-900">₹<span id="fc-subtotal">0</span></span>
+                </div>
+                <div class="flex justify-between">
+                    <span>Shipping</span>
+                    <span id="fc-shipping" class="font-semibold text-green-700">Calculated next step</span>
+                </div>
+                <div class="pt-3 border-t border-gray-200 flex justify-between text-base font-bold text-gray-900">
+                    <span class="font-serif">Estimated Total</span>
+                    <span class="font-serif text-xl text-brand-maroon">₹<span id="fc-total">0</span></span>
+                </div>
+            </div>
+
+            <div class="pt-2 space-y-2">
+                <a href="{{ url_for('checkout') }}" class="w-full py-3.5 bg-brand-maroon hover:bg-brand-maroondark text-white font-bold text-xs rounded-xl shadow-md transition flex items-center justify-center gap-2">
+                    <span>Proceed to Delivery & Payment</span>
+                    <i data-lucide="arrow-right" class="w-4 h-4 text-brand-gold"></i>
+                </a>
+                <button onclick="orderOnWhatsApp()" class="w-full py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white font-medium text-xs rounded-xl transition shadow-xs flex items-center justify-center gap-1.5">
+                    <i data-lucide="message-circle" class="w-4 h-4"></i>
+                    <span>Order via WhatsApp</span>
+                </button>
+            </div>
+
+            <div class="text-[11px] text-gray-500 pt-3 border-t border-gray-100 text-center">
+                Free shipping on all orders over ₹799.
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function renderFullCartPage() {
+        const cart = getCart();
+        const emptyEl = document.getElementById('full-cart-empty');
+        const contentEl = document.getElementById('full-cart-content');
+        const container = document.getElementById('fc-items-container');
+        const countEl = document.getElementById('fc-count');
+        const subtotalEl = document.getElementById('fc-subtotal');
+        const totalEl = document.getElementById('fc-total');
+        const shippingEl = document.getElementById('fc-shipping');
+
+        if (cart.length === 0) {
+            emptyEl.classList.remove('hidden');
+            contentEl.classList.add('hidden');
+            return;
+        }
+
+        emptyEl.classList.add('hidden');
+        contentEl.classList.remove('hidden');
+
+        const subtotal = getCartSubtotal();
+        const count = cart.reduce((s, i) => s + i.quantity, 0);
+
+        countEl.innerText = count;
+        subtotalEl.innerText = subtotal;
+        
+        const ship = subtotal >= 799 ? 0 : 60;
+        shippingEl.innerText = ship === 0 ? "FREE" : `₹${ship}`;
+        totalEl.innerText = subtotal + ship;
+
+        let html = '';
+        cart.forEach((item, idx) => {
+            let customNote = '';
+            if (item.is_custom_box && item.box_contents) {
+                const names = Object.values(item.box_contents).map(s => s.name).join(', ');
+                customNote = `<span class="block text-[11px] text-amber-800 bg-amber-50 p-1 rounded mt-1">Box: ${names}</span>`;
+            }
+
+            html += `
+                <div class="flex items-center justify-between py-4 first:pt-0">
+                    <div class="flex items-center gap-4">
+                        <img src="${item.image_url}" class="w-16 h-16 rounded-xl object-cover border border-amber-100">
+                        <div>
+                            <h4 class="font-bold text-sm text-gray-900">${item.name}</h4>
+                            <span class="text-xs text-amber-700 font-medium">${item.weight}</span>
+                            <span class="text-xs text-gray-500 ml-2">₹${item.price} each</span>
+                            ${customNote}
+                        </div>
+                    </div>
+
+                    <div class="flex items-center gap-6">
+                        <div class="flex items-center border border-gray-200 rounded-lg bg-white">
+                            <button onclick="updateCartQuantity(${idx}, -1); renderFullCartPage();" class="px-2.5 py-1 text-gray-500 hover:bg-gray-100 transition">-</button>
+                            <span class="px-3 text-xs font-bold">${item.quantity}</span>
+                            <button onclick="updateCartQuantity(${idx}, 1); renderFullCartPage();" class="px-2.5 py-1 text-gray-500 hover:bg-gray-100 transition">+</button>
+                        </div>
+                        <span class="font-serif font-bold text-base text-brand-maroon w-16 text-right">₹${item.price * item.quantity}</span>
+                        <button onclick="removeFromCart(${idx}); renderFullCartPage();" class="text-gray-400 hover:text-red-600 p-1 transition" title="Remove">
+                            <i data-lucide="trash-2" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+        if (window.lucide) lucide.createIcons();
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderFullCartPage();
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,212 @@
+{% extends "base.html" %}
+
+{% block title %}Order Confirmed #{{ order.id }} | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-amber-50/40 border-b border-amber-100 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        
+        <!-- Success Icon -->
+        <div class="w-20 h-20 bg-green-100 border-4 border-white text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 shadow-lg animate-bounce">
+            <i data-lucide="check" class="w-10 h-10"></i>
+        </div>
+
+        <span class="text-xs font-bold text-amber-800 uppercase tracking-widest">Dhanyawad! Order Placed Successfully</span>
+        <h1 class="text-3xl sm:text-4xl font-serif font-bold text-brand-maroon mt-1">Order #{{ order.id }}</h1>
+        <p class="text-xs sm:text-sm text-gray-600 max-w-lg mx-auto mt-2">
+            We have received your order for authentic Satara sweets. Our sweet masters are preparing a fresh batch with pure buffalo mawa and desi ghee.
+        </p>
+    </div>
+</div>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
+    
+    <!-- Live Fulfillment Tracker Timeline -->
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-amber-100">
+        <h3 class="font-serif font-bold text-sm text-gray-900 mb-6 flex items-center justify-between">
+            <span>Fulfillment Status</span>
+            <span class="px-3 py-1 bg-green-50 text-green-700 text-xs rounded-full font-bold border border-green-200">{{ order.status }}</span>
+        </h3>
+
+        <div class="relative flex items-center justify-between">
+            <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-amber-100 z-0"></div>
+            
+            <!-- Step 1: Confirmed -->
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full bg-brand-maroon text-brand-gold flex items-center justify-center font-bold text-xs shadow-md">
+                    <i data-lucide="check" class="w-4 h-4"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-800 mt-2">Order Confirmed</span>
+                <span class="text-[10px] text-gray-400">Received</span>
+            </div>
+
+            <!-- Step 2: In Kitchen / Packed -->
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full {% if order.status in ['Packed', 'Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                    <i data-lucide="package" class="w-4 h-4"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-800 mt-2">Fresh Packing</span>
+                <span class="text-[10px] text-gray-400">Vacuum Seal</span>
+            </div>
+
+            <!-- Step 3: Dispatched -->
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                    <i data-lucide="truck" class="w-4 h-4"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-800 mt-2">Dispatched</span>
+                <span class="text-[10px] text-gray-400">Express Courier</span>
+            </div>
+
+            <!-- Step 4: Delivered -->
+            <div class="relative z-10 flex flex-col items-center">
+                <div class="w-9 h-9 rounded-full {% if order.status == 'Delivered' %}bg-green-600 text-white{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                    <i data-lucide="home" class="w-4 h-4"></i>
+                </div>
+                <span class="text-xs font-bold text-gray-800 mt-2">Delivered</span>
+                <span class="text-[10px] text-gray-400">Enjoy Fresh!</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Printable Official Invoice Document -->
+    <div id="printable-invoice" class="bg-white p-8 rounded-3xl shadow-sm border border-amber-200/80 space-y-6">
+        
+        <!-- Invoice Header -->
+        <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between border-b-2 border-amber-100 pb-6 gap-4">
+            <div>
+                <div class="flex items-center gap-2">
+                    <div class="w-9 h-9 rounded-full bg-brand-maroon text-brand-gold flex items-center justify-center font-bold text-lg font-serif">मा</div>
+                    <span class="font-serif text-xl font-bold text-brand-maroon">MAMA PEDHEWALE</span>
+                </div>
+                <p class="text-[11px] text-gray-500 mt-1">
+                    Authentic Satara Sweets Since 1948 • FSSAI Lic # 11521045000123<br>
+                    Shop #12, Shivaji Circle, Satara - 415001, Maharashtra • Tel: {{ store_phone }}
+                </p>
+            </div>
+            <div class="text-left sm:text-right">
+                <span class="text-xs uppercase font-bold text-gray-400 tracking-wider">Tax Invoice</span>
+                <div class="font-mono text-sm font-bold text-gray-900">{{ order.id }}</div>
+                <div class="text-xs text-gray-500">Date: {{ order.created_at[:10] }}</div>
+                <span class="inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase {% if order.payment_status == 'Paid' %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">
+                    Payment: {{ order.payment_method.upper() }} ({{ order.payment_status }})
+                </span>
+            </div>
+        </div>
+
+        <!-- Customer & Delivery Details -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs text-gray-600 bg-amber-50/40 p-4 rounded-2xl">
+            <div>
+                <h4 class="font-bold text-gray-900 uppercase tracking-wider text-[11px] mb-1">Delivering To:</h4>
+                <div class="font-semibold text-gray-900 text-sm">{{ order.customer_name }}</div>
+                <div>{{ order.address_line1 }}</div>
+                {% if order.address_line2 %}<div>{{ order.address_line2 }}</div>{% endif %}
+                <div>{{ order.city }}, {{ order.state }} - <strong>{{ order.pincode }}</strong></div>
+                <div class="mt-1 font-medium">Contact: {{ order.customer_phone }}</div>
+            </div>
+            <div>
+                <h4 class="font-bold text-gray-900 uppercase tracking-wider text-[11px] mb-1">Delivery Preferences:</h4>
+                <div>Target Date: <strong>{{ order.delivery_date or 'Next Business Day' }}</strong></div>
+                <div>Time Slot: {{ order.delivery_slot or 'Standard Express' }}</div>
+                {% if order.gift_message %}
+                <div class="mt-2 p-2 bg-white rounded-lg border border-amber-200">
+                    <span class="font-bold text-[10px] text-amber-900 block">Personalized Gift Message:</span>
+                    <span class="italic text-gray-700">"{{ order.gift_message }}"</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Items Table -->
+        <div class="overflow-x-auto">
+            <table class="w-full text-xs text-left">
+                <thead class="bg-gray-50 text-gray-500 uppercase text-[10px] font-bold tracking-wider border-y border-gray-200">
+                    <tr>
+                        <th class="py-3 px-4">#</th>
+                        <th class="py-3 px-4">Sweet Item</th>
+                        <th class="py-3 px-4">Pack Size</th>
+                        <th class="py-3 px-4 text-center">Qty</th>
+                        <th class="py-3 px-4 text-right">Unit Price</th>
+                        <th class="py-3 px-4 text-right">Total</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-gray-100">
+                    {% for item in items %}
+                    <tr>
+                        <td class="py-3 px-4 text-gray-400">{{ loop.index }}</td>
+                        <td class="py-3 px-4">
+                            <span class="font-bold text-gray-900 text-sm block">{{ item.product_name }}</span>
+                            {% if item.is_custom_box and item.box_contents %}
+                            <span class="text-[10px] text-amber-700 block">Custom Assortment Box</span>
+                            {% endif %}
+                        </td>
+                        <td class="py-3 px-4 font-semibold text-gray-700">{{ item.weight_selected }}</td>
+                        <td class="py-3 px-4 text-center font-bold text-gray-900">{{ item.quantity }}</td>
+                        <td class="py-3 px-4 text-right text-gray-600">₹{{ item.unit_price }}</td>
+                        <td class="py-3 px-4 text-right font-bold text-gray-900">₹{{ item.item_total }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="border-t-2 border-gray-200 font-semibold text-gray-700">
+                    <tr>
+                        <td colspan="5" class="py-2 px-4 text-right">Subtotal:</td>
+                        <td class="py-2 px-4 text-right text-gray-900">₹{{ order.subtotal }}</td>
+                    </tr>
+                    <tr>
+                        <td colspan="5" class="py-2 px-4 text-right">Express Shipping:</td>
+                        <td class="py-2 px-4 text-right text-gray-900">{% if order.delivery_fee == 0 %}FREE{% else %}₹{{ order.delivery_fee }}{% endif %}</td>
+                    </tr>
+                    {% if order.discount > 0 %}
+                    <tr class="text-green-700">
+                        <td colspan="5" class="py-2 px-4 text-right">Discount:</td>
+                        <td class="py-2 px-4 text-right">-₹{{ order.discount }}</td>
+                    </tr>
+                    {% endif %}
+                    <tr class="border-t border-gray-200 text-base font-bold text-brand-maroon">
+                        <td colspan="5" class="py-3 px-4 text-right font-serif">Grand Total Paid/Payable:</td>
+                        <td class="py-3 px-4 text-right font-serif text-lg">₹{{ order.total_amount }}</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <div class="border-t border-gray-100 pt-4 text-center text-[11px] text-gray-400">
+            Thank you for trusting Mama Pedhewale. Made with 100% devotion and pure cow ghee.
+        </div>
+
+    </div>
+
+    <!-- Actions: Print & Share -->
+    <div class="flex flex-wrap items-center justify-center gap-4 no-print">
+        <button onclick="window.print()" class="px-6 py-3 bg-white hover:bg-gray-50 border border-gray-300 text-gray-800 text-xs font-bold rounded-xl shadow-xs transition flex items-center gap-2">
+            <i data-lucide="printer" class="w-4 h-4"></i>
+            <span>Print / Save Tax Invoice</span>
+        </button>
+
+        <a href="https://wa.me/{{ store_whatsapp }}?text=Namaskar!%20My%20Mama%20Pedhewale%20Order%20ID%20is%20{{ order.id }}.%20Please%20share%20dispatch%20updates." target="_blank" class="px-6 py-3 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-md transition flex items-center gap-2">
+            <i data-lucide="message-circle" class="w-4 h-4"></i>
+            <span>Get Updates on WhatsApp</span>
+        </a>
+
+        <a href="{{ url_for('products') }}" class="px-6 py-3 bg-brand-maroon hover:bg-brand-maroondark text-white text-xs font-bold rounded-xl shadow-md transition">
+            Continue Shopping
+        </a>
+    </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Trigger celebratory confetti
+        if (window.confetti) {
+            confetti({
+                particleCount: 120,
+                spread: 90,
+                origin: { y: 0.5 }
+            });
+        }
+    });
+</script>
+{% endblock %}

@@ -1,0 +1,420 @@
+{% extends "base.html" %}
+
+{% block title %}Checkout & Delivery | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-amber-50/40 border-b border-amber-100 py-6">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <h1 class="text-2xl sm:text-3xl font-serif font-bold text-brand-maroon">Complete Your Sweet Order</h1>
+        <p class="text-xs text-gray-500 mt-1">Dispatched fresh in tamper-proof airtight packaging.</p>
+    </div>
+</div>
+
+<div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    
+    <!-- Empty Cart Alert if opened with no items -->
+    <div id="checkout-empty-warning" class="hidden bg-white p-8 rounded-2xl border border-amber-200 text-center max-w-md mx-auto">
+        <div class="w-16 h-16 rounded-full bg-amber-100 text-brand-maroon flex items-center justify-center mx-auto mb-4">
+            <i data-lucide="shopping-bag" class="w-8 h-8"></i>
+        </div>
+        <h3 class="font-serif font-bold text-lg text-gray-900 mb-1">Your cart is empty</h3>
+        <p class="text-xs text-gray-500 mb-6">Please add items from our sweets catalog before checking out.</p>
+        <a href="{{ url_for('products') }}" class="px-5 py-2.5 bg-brand-maroon text-white text-xs font-semibold rounded-xl hover:bg-brand-maroondark transition">Browse Sweets</a>
+    </div>
+
+    <form id="checkout-form" onsubmit="submitOrder(event)" class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-start">
+        
+        <!-- Left: Shipping & Delivery Information -->
+        <div class="lg:col-span-7 space-y-6">
+            
+            <!-- Step 1: Contact & Address -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-100 space-y-4">
+                <div class="flex items-center gap-2 border-b border-gray-100 pb-3">
+                    <div class="w-7 h-7 rounded-full bg-brand-maroon text-brand-gold text-xs font-bold flex items-center justify-center">1</div>
+                    <h3 class="font-serif font-bold text-base text-gray-900">Delivery Address</h3>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Full Name *</label>
+                        <input type="text" id="cust-name" required placeholder="e.g. Rahul Deshmukh" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Mobile Number (for delivery SMS/calls) *</label>
+                        <input type="tel" id="cust-phone" required pattern="[0-9]{10}" placeholder="10-digit mobile number" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Email Address (for invoice copy)</label>
+                        <input type="email" id="cust-email" placeholder="rahul@example.com" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Flat / House No. / Building / Street Address *</label>
+                        <input type="text" id="cust-address1" required placeholder="Apartment / Lane / Landmark" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Delivery PIN Code *</label>
+                        <div class="relative">
+                            <input type="text" id="cust-pincode" required maxlength="6" onblur="validateCheckoutPincode()" placeholder="e.g. 415001" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                            <span id="pincode-spin" class="hidden absolute right-3 top-2.5 text-xs text-gray-400">Verifying...</span>
+                        </div>
+                        <div id="checkout-pincode-feedback" class="text-[11px] font-semibold mt-1"></div>
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">City / District *</label>
+                        <input type="text" id="cust-city" required placeholder="Satara / Pune / Mumbai" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">State *</label>
+                        <input type="text" id="cust-state" required value="Maharashtra" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 2: Freshness Schedule & Gift Message -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-100 space-y-4">
+                <div class="flex items-center gap-2 border-b border-gray-100 pb-3">
+                    <div class="w-7 h-7 rounded-full bg-brand-maroon text-brand-gold text-xs font-bold flex items-center justify-center">2</div>
+                    <h3 class="font-serif font-bold text-base text-gray-900">Delivery Schedule & Gift Message</h3>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Preferred Delivery Date (Festival / Puja)</label>
+                        <input type="date" id="cust-delivery-date" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Preferred Time Slot</label>
+                        <select id="cust-delivery-slot" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                            <option value="Morning (9 AM - 1 PM)">Morning Batch (9 AM - 1 PM)</option>
+                            <option value="Evening (3 PM - 7 PM)" selected>Evening Batch (3 PM - 7 PM)</option>
+                            <option value="Standard Express Delivery">Standard Express Courier</option>
+                        </select>
+                    </div>
+                    <div class="sm:col-span-2">
+                        <label class="block text-xs font-medium text-gray-700 mb-1">Complimentary Gift Note (Printed on gold card inside box)</label>
+                        <textarea id="cust-gift-message" rows="2" placeholder="Wishing you and your family a very happy and sweet festival! From: Deshmukh Family" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold"></textarea>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Step 3: Payment Method -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-100 space-y-4">
+                <div class="flex items-center gap-2 border-b border-gray-100 pb-3">
+                    <div class="w-7 h-7 rounded-full bg-brand-maroon text-brand-gold text-xs font-bold flex items-center justify-center">3</div>
+                    <h3 class="font-serif font-bold text-base text-gray-900">Select Payment Method</h3>
+                </div>
+
+                <div class="space-y-3">
+                    <!-- UPI Option -->
+                    <label class="flex items-center justify-between p-4 rounded-xl border-2 border-brand-maroon bg-amber-50/40 cursor-pointer transition">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="payment_method" value="upi" checked onchange="handlePaymentChange('upi')" class="text-brand-maroon focus:ring-brand-gold">
+                            <div>
+                                <span class="font-bold text-xs text-gray-900 block">Instant UPI Payment (PhonePe, Google Pay, Paytm, BHIM)</span>
+                                <span class="text-[11px] text-green-700 font-semibold">Fastest processing & priority morning dispatch</span>
+                            </div>
+                        </div>
+                        <span class="text-xs font-bold text-brand-maroon bg-amber-100 px-2 py-0.5 rounded">Popular</span>
+                    </label>
+
+                    <!-- UPI QR Simulator Container -->
+                    <div id="upi-qr-box" class="p-4 bg-white border border-amber-200 rounded-xl flex flex-col sm:flex-row items-center gap-4 text-center sm:text-left">
+                        <!-- Simulated Dynamic QR Code SVG -->
+                        <div class="p-2 bg-white rounded-xl shadow border border-gray-200 shrink-0">
+                            <svg class="w-28 h-28" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                                <rect width="100" height="100" fill="white"/>
+                                <rect x="10" y="10" width="25" height="25" fill="#6A0D25"/>
+                                <rect x="14" y="14" width="17" height="17" fill="white"/>
+                                <rect x="18" y="18" width="9" height="9" fill="#6A0D25"/>
+                                <rect x="65" y="10" width="25" height="25" fill="#6A0D25"/>
+                                <rect x="69" y="14" width="17" height="17" fill="white"/>
+                                <rect x="73" y="18" width="9" height="9" fill="#6A0D25"/>
+                                <rect x="10" y="65" width="25" height="25" fill="#6A0D25"/>
+                                <rect x="14" y="69" width="17" height="17" fill="white"/>
+                                <rect x="18" y="73" width="9" height="9" fill="#6A0D25"/>
+                                <rect x="42" y="15" width="8" height="8" fill="#AA820A"/>
+                                <rect x="42" y="30" width="8" height="8" fill="#6A0D25"/>
+                                <rect x="52" y="42" width="8" height="8" fill="#AA820A"/>
+                                <rect x="30" y="45" width="15" height="8" fill="#6A0D25"/>
+                                <rect x="45" y="60" width="12" height="12" fill="#6A0D25"/>
+                                <rect x="65" y="65" width="10" height="20" fill="#AA820A"/>
+                                <rect x="80" y="65" width="10" height="10" fill="#6A0D25"/>
+                            </svg>
+                        </div>
+                        <div class="space-y-1">
+                            <div class="text-xs font-bold text-gray-800">Scan & Pay using Any UPI App</div>
+                            <div class="text-[11px] text-gray-500">UPI ID: <code class="bg-gray-100 px-1.5 py-0.5 rounded text-brand-maroon font-semibold">mamapedhewale@upi</code></div>
+                            <div class="text-[10px] text-amber-800 bg-amber-50 px-2 py-1 rounded inline-block">Order is confirmed immediately upon submitting.</div>
+                        </div>
+                    </div>
+
+                    <!-- Cash on Delivery Option -->
+                    <label class="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-brand-gold bg-white cursor-pointer transition">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="payment_method" value="cod" onchange="handlePaymentChange('cod')" class="text-brand-maroon focus:ring-brand-gold">
+                            <div>
+                                <span class="font-bold text-xs text-gray-900 block">Cash on Delivery (COD)</span>
+                                <span class="text-[11px] text-gray-500">Pay cash or UPI upon doorstep delivery</span>
+                            </div>
+                        </div>
+                        <i data-lucide="banknote" class="w-5 h-5 text-gray-400"></i>
+                    </label>
+
+                    <!-- Cards / Net Banking Option -->
+                    <label class="flex items-center justify-between p-4 rounded-xl border border-gray-200 hover:border-brand-gold bg-white cursor-pointer transition">
+                        <div class="flex items-center gap-3">
+                            <input type="radio" name="payment_method" value="card" onchange="handlePaymentChange('card')" class="text-brand-maroon focus:ring-brand-gold">
+                            <div>
+                                <span class="font-bold text-xs text-gray-900 block">Credit / Debit Card & Net Banking</span>
+                                <span class="text-[11px] text-gray-500">All major Indian banks & RuPay cards supported</span>
+                            </div>
+                        </div>
+                        <i data-lucide="credit-card" class="w-5 h-5 text-gray-400"></i>
+                    </label>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Right: Order Summary Breakdown -->
+        <div class="lg:col-span-5 sticky top-28 space-y-4">
+            
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-amber-100 space-y-4">
+                <div class="flex items-center justify-between border-b border-gray-100 pb-3">
+                    <h3 class="font-serif font-bold text-base text-brand-maroon">Order Summary</h3>
+                    <a href="{{ url_for('products') }}" class="text-xs text-brand-golddark hover:underline font-medium">+ Add More Sweets</a>
+                </div>
+
+                <!-- Items list in checkout -->
+                <div id="checkout-items-list" class="space-y-3 max-h-72 overflow-y-auto divide-y divide-gray-100 pr-1">
+                    <!-- Dynamic Items rendered here -->
+                </div>
+
+                <!-- Price breakdown -->
+                <div class="pt-3 border-t border-gray-200 space-y-2 text-xs text-gray-600">
+                    <div class="flex justify-between">
+                        <span>Items Subtotal</span>
+                        <span class="font-semibold text-gray-900">₹<span id="co-subtotal">0</span></span>
+                    </div>
+                    <div class="flex justify-between">
+                        <span>Delivery & Packaging Fee</span>
+                        <span id="co-shipping" class="font-semibold text-gray-900">₹0</span>
+                    </div>
+                    <div id="co-discount-row" class="flex justify-between text-green-700 hidden">
+                        <span>Festival Special Discount</span>
+                        <span class="font-semibold">-₹<span id="co-discount">0</span></span>
+                    </div>
+                    <div class="flex justify-between pt-2 border-t border-gray-200 text-base font-bold text-gray-900">
+                        <span class="font-serif">Grand Total</span>
+                        <span class="font-serif text-xl text-brand-maroon">₹<span id="co-total">0</span></span>
+                    </div>
+                </div>
+
+                <!-- Submit Button -->
+                <button type="submit" id="place-order-btn" class="w-full py-4 px-6 bg-brand-maroon hover:bg-brand-maroondark text-white font-bold text-sm rounded-xl shadow-lg hover:shadow-xl transition flex items-center justify-center gap-2">
+                    <i data-lucide="lock" class="w-4 h-4 text-brand-gold"></i>
+                    <span>Confirm & Place Order</span>
+                </button>
+
+                <div class="text-center text-[11px] text-gray-400 flex items-center justify-center gap-1.5">
+                    <i data-lucide="shield-check" class="w-3.5 h-3.5 text-green-600"></i>
+                    <span>256-Bit SSL Encrypted & Authentic Satara Dispatch</span>
+                </div>
+            </div>
+
+            <!-- Helpline Card -->
+            <div class="p-4 bg-amber-50/70 rounded-2xl border border-amber-200/80 text-xs text-amber-900 space-y-1">
+                <div class="font-bold flex items-center gap-1.5">
+                    <i data-lucide="phone-call" class="w-4 h-4 text-brand-maroon"></i>
+                    <span>Need help placing your sweet order?</span>
+                </div>
+                <p class="text-gray-600 text-[11px]">Call or WhatsApp our helpline at <strong>{{ store_phone }}</strong> (8 AM - 10 PM)</p>
+            </div>
+
+        </div>
+
+    </form>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    let checkoutShippingFee = 0;
+    let isPincodeServiceable = true;
+
+    function renderCheckoutPage() {
+        const cart = getCart();
+        const form = document.getElementById('checkout-form');
+        const emptyWarning = document.getElementById('checkout-empty-warning');
+        const itemsList = document.getElementById('checkout-items-list');
+
+        if (cart.length === 0) {
+            form.classList.add('hidden');
+            emptyWarning.classList.remove('hidden');
+            return;
+        }
+
+        form.classList.remove('hidden');
+        emptyWarning.classList.add('hidden');
+
+        const subtotal = getCartSubtotal();
+        document.getElementById('co-subtotal').innerText = subtotal;
+
+        // Shipping fee logic: Free if >= 799, otherwise 60
+        checkoutShippingFee = subtotal >= 799 ? 0 : 60;
+        const shippingEl = document.getElementById('co-shipping');
+        if (checkoutShippingFee === 0) {
+            shippingEl.innerText = "FREE";
+            shippingEl.className = "font-bold text-green-700";
+        } else {
+            shippingEl.innerText = `₹${checkoutShippingFee}`;
+            shippingEl.className = "font-semibold text-gray-900";
+        }
+
+        document.getElementById('co-total').innerText = subtotal + checkoutShippingFee;
+
+        // Build items HTML
+        let html = '';
+        cart.forEach(item => {
+            let customNote = '';
+            if (item.is_custom_box && item.box_contents) {
+                const names = Object.values(item.box_contents).map(s => s.name).join(', ');
+                customNote = `<span class="block text-[10px] text-amber-700 font-medium">Box: ${names}</span>`;
+            }
+
+            html += `
+                <div class="flex items-center justify-between py-2">
+                    <div class="flex items-center gap-3">
+                        <img src="${item.image_url}" class="w-10 h-10 rounded-lg object-cover border border-amber-100">
+                        <div>
+                            <span class="font-semibold text-xs text-gray-800 block line-clamp-1">${item.name}</span>
+                            <span class="text-[11px] text-gray-500">${item.weight} x ${item.quantity}</span>
+                            ${customNote}
+                        </div>
+                    </div>
+                    <span class="font-bold text-xs text-brand-maroon">₹${item.price * item.quantity}</span>
+                </div>
+            `;
+        });
+        itemsList.innerHTML = html;
+
+        // Set default preferred delivery date to tomorrow
+        const tomorrow = new Date();
+        tomorrow.setDate(tomorrow.getDate() + 1);
+        document.getElementById('cust-delivery-date').value = tomorrow.toISOString().split('T')[0];
+    }
+
+    function handlePaymentChange(method) {
+        const qrBox = document.getElementById('upi-qr-box');
+        if (method === 'upi') {
+            qrBox.classList.remove('hidden');
+        } else {
+            qrBox.classList.add('hidden');
+        }
+    }
+
+    function validateCheckoutPincode() {
+        const pin = document.getElementById('cust-pincode').value.trim();
+        const feedback = document.getElementById('checkout-pincode-feedback');
+        const cityInput = document.getElementById('cust-city');
+
+        if (!pin || pin.length !== 6) return;
+
+        fetch('/api/check-pincode', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pincode: pin })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.serviceable) {
+                feedback.className = "text-[11px] font-semibold text-green-700 mt-1";
+                feedback.innerText = `✓ ${data.message}`;
+                if (data.city && data.city !== 'Your Location') {
+                    cityInput.value = data.city;
+                }
+            } else {
+                feedback.className = "text-[11px] font-semibold text-red-600 mt-1";
+                feedback.innerText = data.message;
+            }
+        });
+    }
+
+    function submitOrder(e) {
+        e.preventDefault();
+
+        const cart = getCart();
+        if (cart.length === 0) {
+            showToast('Empty Cart', 'Cart is empty. Please add sweets first.', 'warning');
+            return;
+        }
+
+        const btn = document.getElementById('place-order-btn');
+        btn.disabled = true;
+        btn.innerHTML = `
+            <svg class="animate-spin -ml-1 mr-2 h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path>
+            </svg>
+            <span>Processing Order...</span>
+        `;
+
+        const paymentMethod = document.querySelector('input[name="payment_method"]:checked').value;
+
+        const orderData = {
+            customer: {
+                name: document.getElementById('cust-name').value.trim(),
+                phone: document.getElementById('cust-phone').value.trim(),
+                email: document.getElementById('cust-email').value.trim(),
+                address1: document.getElementById('cust-address1').value.trim(),
+                city: document.getElementById('cust-city').value.trim(),
+                state: document.getElementById('cust-state').value.trim(),
+                pincode: document.getElementById('cust-pincode').value.trim()
+            },
+            delivery: {
+                type: 'standard',
+                fee: checkoutShippingFee,
+                date: document.getElementById('cust-delivery-date').value,
+                slot: document.getElementById('cust-delivery-slot').value,
+                gift_message: document.getElementById('cust-gift-message').value.trim()
+            },
+            payment: {
+                method: paymentMethod
+            },
+            items: cart
+        };
+
+        fetch('/api/orders', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify(orderData)
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                // Clear cart locally
+                clearCart();
+                // Redirect to order success page
+                window.location.href = res.redirect_url;
+            } else {
+                alert(res.error || 'Failed to place order. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-brand-gold"></i><span>Confirm & Place Order</span>`;
+                if (window.lucide) lucide.createIcons();
+            }
+        })
+        .catch(err => {
+            console.error('Order submission error:', err);
+            alert('Something went wrong. Please try again.');
+            btn.disabled = false;
+            btn.innerHTML = `<i data-lucide="lock" class="w-4 h-4 text-brand-gold"></i><span>Confirm & Place Order</span>`;
+            if (window.lucide) lucide.createIcons();
+        });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        renderCheckoutPage();
+    });
+</script>
+{% endblock %}

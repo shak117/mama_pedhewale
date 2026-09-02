@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+
+{% block title %}Track Your Mithai Order | Mama Pedhewale{% endblock %}
+
+{% block content %}
+<div class="bg-amber-50/40 border-b border-amber-100 py-8">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
+        <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Real-time Order Status</span>
+        <h1 class="text-3xl sm:text-4xl font-serif font-bold text-brand-maroon mt-1">Track Your Sweet Dispatch</h1>
+        <p class="text-xs sm:text-sm text-gray-500 max-w-md mx-auto mt-2">
+            Enter your Order ID (from SMS / Invoice) or your 10-digit mobile number to check the dispatch status.
+        </p>
+    </div>
+</div>
+
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+    
+    <!-- Search Form -->
+    <div class="bg-white p-6 rounded-3xl shadow-sm border border-amber-100 mb-8 max-w-xl mx-auto">
+        <form action="{{ url_for('track_order') }}" method="GET" class="space-y-4">
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Order ID</label>
+                <input type="text" name="order_id" value="{{ searched_id }}" placeholder="e.g. MP-20260902-ABC12" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold font-mono uppercase">
+            </div>
+            <div class="text-center text-xs text-gray-400 font-bold">— OR —</div>
+            <div>
+                <label class="block text-xs font-semibold text-gray-700 mb-1">Registered 10-digit Mobile Number</label>
+                <input type="tel" name="phone" value="{{ searched_phone }}" placeholder="e.g. 9822012345" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+            </div>
+            <button type="submit" class="w-full py-3 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition shadow flex items-center justify-center gap-2">
+                <i data-lucide="search" class="w-4 h-4 text-brand-gold"></i>
+                <span>Track Order Status</span>
+            </button>
+        </form>
+    </div>
+
+    <!-- Error message if any -->
+    {% if error %}
+    <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs text-center max-w-xl mx-auto mb-8 font-medium">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- Order Details if Found -->
+    {% if order %}
+    <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-amber-200 space-y-6">
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 gap-2">
+            <div>
+                <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Order Status</span>
+                <h3 class="font-serif text-xl font-bold text-brand-maroon">{{ order.id }}</h3>
+                <span class="text-xs text-gray-500">Placed on {{ order.created_at[:16] }}</span>
+            </div>
+            <div>
+                <span class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase bg-green-100 text-green-800">
+                    {{ order.status }}
+                </span>
+            </div>
+        </div>
+
+        <!-- Tracking Timeline -->
+        <div class="py-4">
+            <div class="relative flex items-center justify-between">
+                <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-amber-100 z-0"></div>
+                
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full bg-brand-maroon text-brand-gold flex items-center justify-center font-bold text-xs shadow">
+                        <i data-lucide="check" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Confirmed</span>
+                </div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full {% if order.status in ['Packed', 'Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                        <i data-lucide="package" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Kitchen Packed</span>
+                </div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                        <i data-lucide="truck" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Dispatched</span>
+                </div>
+
+                <div class="relative z-10 flex flex-col items-center">
+                    <div class="w-8 h-8 rounded-full {% if order.status == 'Delivered' %}bg-green-600 text-white{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                        <i data-lucide="home" class="w-4 h-4"></i>
+                    </div>
+                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Delivered</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Details Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-amber-50/40 p-4 rounded-2xl text-xs text-gray-600">
+            <div>
+                <span class="font-bold text-gray-900 block mb-1">Delivering to:</span>
+                <div class="font-semibold text-gray-800">{{ order.customer_name }}</div>
+                <div>{{ order.address_line1 }}, {{ order.city }} - {{ order.pincode }}</div>
+            </div>
+            <div>
+                <span class="font-bold text-gray-900 block mb-1">Delivery Timing:</span>
+                <div>Date: <strong>{{ order.delivery_date or 'Next Business Day' }}</strong></div>
+                <div>Slot: {{ order.delivery_slot }}</div>
+            </div>
+        </div>
+
+        <!-- Ordered Sweets -->
+        <div class="space-y-2">
+            <h4 class="text-xs font-bold text-gray-900 uppercase tracking-wider">Ordered Sweets:</h4>
+            <div class="divide-y divide-gray-100">
+                {% for item in items %}
+                <div class="py-2.5 flex items-center justify-between text-xs">
+                    <div>
+                        <span class="font-bold text-gray-900">{{ item.product_name }}</span>
+                        <span class="text-gray-500 text-[11px] block">{{ item.weight_selected }} x {{ item.quantity }}</span>
+                    </div>
+                    <span class="font-bold text-brand-maroon">₹{{ item.item_total }}</span>
+                </div>
+                {% endfor %}
+            </div>
+            <div class="pt-3 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-900">
+                <span>Total Amount</span>
+                <span class="text-brand-maroon font-serif text-base">₹{{ order.total_amount }}</span>
+            </div>
+        </div>
+
+        <div class="text-center pt-2">
+            <a href="{{ url_for('order_success', order_id=order.id) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-maroon hover:underline">
+                <i data-lucide="printer" class="w-4 h-4"></i>
+                <span>View Full Tax Invoice / Receipt</span>
+            </a>
+        </div>
+
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

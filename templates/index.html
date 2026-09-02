@@ -1,0 +1,492 @@
+{% extends "base.html" %}
+
+{% block title %}Mama Pedhewale (मामा पेढेवाले) | Authentic Satara Kandi Pedha & Pure Sweets{% endblock %}
+
+{% block content %}
+<!-- Hero Section -->
+<section class="relative bg-gradient-to-b from-amber-50/80 via-white to-amber-50/40 py-12 md:py-20 overflow-hidden border-b border-amber-100">
+    <!-- Decorative background elements -->
+    <div class="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-brand-gold/10 blur-3xl pointer-events-none"></div>
+    <div class="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 rounded-full bg-brand-maroon/5 blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            
+            <!-- Left Hero Text -->
+            <div class="lg:col-span-7 space-y-6 text-center lg:text-left">
+                <div class="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-100 border border-brand-gold/40 text-brand-maroon text-xs font-semibold shadow-xs">
+                    <span class="w-2 h-2 rounded-full bg-brand-maroon animate-ping"></span>
+                    <span>The Historic Taste of Satara • Since 1948</span>
+                </div>
+
+                <h1 class="text-3xl sm:text-5xl lg:text-6xl font-serif font-bold text-brand-maroon leading-tight">
+                    Authentic <span class="text-shimmer">Satara Kandi Pedha</span> & Pure Desi Ghee Sweets
+                </h1>
+
+                <p class="text-sm sm:text-base text-gray-600 max-w-xl leading-relaxed mx-auto lg:mx-0">
+                    Handcrafted everyday in traditional heavy copper vats using 100% pure thick buffalo milk mawa and natural green cardamom. Experience 78 years of uncompromised royal purity.
+                </p>
+
+                <!-- Pincode Delivery Quick Check -->
+                <div class="bg-white p-2.5 rounded-2xl shadow-lg border border-amber-200/80 max-w-md mx-auto lg:mx-0 flex flex-col sm:flex-row gap-2">
+                    <div class="flex items-center gap-2 px-3 flex-grow">
+                        <i data-lucide="map-pin" class="w-5 h-5 text-brand-maroon shrink-0"></i>
+                        <input type="text" id="hero-pincode-input" maxlength="6" placeholder="Enter Delivery Pincode (e.g. 415001)" class="w-full text-xs sm:text-sm bg-transparent border-none focus:outline-none text-gray-800">
+                    </div>
+                    <button type="button" onclick="checkHeroPincode()" class="px-5 py-2.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl font-medium text-xs sm:text-sm transition shadow shrink-0">
+                        Check Delivery
+                    </button>
+                </div>
+                <div id="hero-pincode-status" class="text-xs font-medium hidden"></div>
+
+                <!-- CTAs & Action buttons -->
+                <div class="flex flex-wrap items-center justify-center lg:justify-start gap-4 pt-2">
+                    <a href="{{ url_for('products') }}" class="px-6 py-3.5 bg-brand-maroon hover:bg-brand-maroondark text-white font-semibold text-sm rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition duration-200 flex items-center gap-2">
+                        <span>Order Sweets Online</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4 text-brand-gold"></i>
+                    </a>
+                    <a href="{{ url_for('custom_box') }}" class="px-6 py-3.5 bg-white hover:bg-amber-50 text-brand-maroon border-2 border-brand-gold/50 font-semibold text-sm rounded-xl shadow-sm hover:shadow transition duration-200 flex items-center gap-2">
+                        <i data-lucide="box" class="w-4 h-4 text-brand-golddark"></i>
+                        <span>Build Custom Box</span>
+                    </a>
+                </div>
+
+                <!-- Trust Badges -->
+                <div class="grid grid-cols-3 gap-4 pt-6 border-t border-amber-200/60 max-w-lg mx-auto lg:mx-0">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-brand-maroon shrink-0">
+                            <i data-lucide="shield-check" class="w-4 h-4"></i>
+                        </div>
+                        <div class="text-left">
+                            <div class="text-xs font-bold text-gray-800">100% Pure Mawa</div>
+                            <div class="text-[10px] text-gray-500">No adulteration</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-brand-maroon shrink-0">
+                            <i data-lucide="flame" class="w-4 h-4"></i>
+                        </div>
+                        <div class="text-left">
+                            <div class="text-xs font-bold text-gray-800">Pure Desi Ghee</div>
+                            <div class="text-[10px] text-gray-500">No palm oil/dalda</div>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-full bg-amber-100 flex items-center justify-center text-brand-maroon shrink-0">
+                            <i data-lucide="truck" class="w-4 h-4"></i>
+                        </div>
+                        <div class="text-left">
+                            <div class="text-xs font-bold text-gray-800">Express Delivery</div>
+                            <div class="text-[10px] text-gray-500">Fresh dispatched</div>
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- Right Hero Image with Heritage Badge -->
+            <div class="lg:col-span-5 relative">
+                <div class="relative mx-auto max-w-md">
+                    <!-- Glow Behind Image -->
+                    <div class="absolute inset-0 rounded-3xl bg-gradient-to-tr from-brand-gold/30 to-brand-maroon/20 filter blur-xl transform rotate-3"></div>
+                    
+                    <!-- Main Showcase Card -->
+                    <div class="relative bg-white p-3 sm:p-4 rounded-3xl shadow-2xl border border-amber-100 overflow-hidden">
+                        <div class="relative rounded-2xl overflow-hidden aspect-4/3 sm:aspect-square">
+                            <img src="https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=800&auto=format&fit=crop&q=80" alt="Satara Special Kandi Pedha" class="w-full h-full object-cover transform hover:scale-105 transition duration-700">
+                            <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent"></div>
+                            <div class="absolute bottom-4 left-4 right-4 text-white">
+                                <div class="inline-block px-2.5 py-0.5 rounded-full bg-brand-gold text-brand-maroondark text-xs font-bold uppercase mb-1">Signature Dish</div>
+                                <h3 class="font-serif text-xl sm:text-2xl font-bold">Satara Kandi Pedha</h3>
+                                <p class="text-xs text-amber-200">Slow-caramelized buffalo milk khoya with cardamom</p>
+                            </div>
+                        </div>
+
+                        <div class="p-4 flex items-center justify-between">
+                            <div>
+                                <span class="text-xs text-gray-500">Starting from</span>
+                                <div class="text-xl font-serif font-bold text-brand-maroon">₹190 <span class="text-xs font-sans text-gray-500 font-normal">/ 250g</span></div>
+                            </div>
+                            <button onclick="addToCart({id: 'satara-kandi-pedha', name: 'Satara Special Kandi Pedha', name_mr: 'सातारी खास कांडी पेढा', price: 190, weight: '250g', image_url: 'https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=800&auto=format&fit=crop&q=80'})" class="px-4 py-2 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl font-medium text-xs transition flex items-center gap-1.5 shadow">
+                                <i data-lucide="plus" class="w-4 h-4 text-brand-gold"></i>
+                                <span>Quick Add</span>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Floating Heritage Seal -->
+                    <div class="absolute -top-4 -left-4 bg-brand-gold text-brand-maroondark p-3 rounded-2xl shadow-xl border-2 border-white flex items-center gap-2">
+                        <i data-lucide="award" class="w-6 h-6"></i>
+                        <div class="leading-tight">
+                            <div class="font-bold text-xs">78+ YEARS</div>
+                            <div class="text-[9px] uppercase tracking-wider font-semibold">Legacy in Satara</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Category Quick Grid -->
+<section class="py-12 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-2xl mx-auto mb-8">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Handcrafted With Devotion</span>
+            <h2 class="text-2xl sm:text-3xl font-serif font-bold text-brand-maroon mt-1">Explore by Sweet Specialty</h2>
+        </div>
+
+        <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
+            {% for cat in categories %}
+            <a href="{{ url_for('products', category=cat.id) }}" class="group bg-amber-50/50 hover:bg-amber-100/50 rounded-2xl p-4 border border-amber-100/80 transition-all duration-300 hover:shadow-md text-center flex flex-col items-center">
+                <div class="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden mb-3 border-2 border-brand-gold/40 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                    <img src="{{ cat.image_url }}" alt="{{ cat.name }}" class="w-full h-full object-cover">
+                </div>
+                <h3 class="font-serif font-bold text-sm text-gray-800 group-hover:text-brand-maroon transition">{{ cat.name }}</h3>
+                <span class="text-xs text-amber-700 font-devanagari mt-0.5">{{ cat.name_mr }}</span>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Bestsellers Showcase -->
+<section class="py-14 bg-amber-50/30 border-y border-amber-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        
+        <div class="flex flex-col md:flex-row md:items-end justify-between mb-10">
+            <div>
+                <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Customer Favorites</span>
+                <h2 class="text-2xl sm:text-3xl font-serif font-bold text-brand-maroon mt-1">Mama's Royal Bestsellers</h2>
+                <p class="text-xs sm:text-sm text-gray-500 mt-1">Our most celebrated sweets, dispatched fresh daily in moisture-sealed gift packs.</p>
+            </div>
+            <a href="{{ url_for('products') }}" class="mt-4 md:mt-0 inline-flex items-center gap-1 text-xs font-bold text-brand-maroon hover:text-brand-golddark uppercase tracking-wider transition">
+                <span>View All Sweets</span>
+                <i data-lucide="chevron-right" class="w-4 h-4"></i>
+            </a>
+        </div>
+
+        <!-- Product Cards Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% for item in bestsellers %}
+            <div class="bg-white rounded-2xl shadow-sm hover:shadow-xl border border-amber-100 overflow-hidden transition-all duration-300 flex flex-col group" id="product-card-{{ item.id }}">
+                
+                <!-- Image Container with Badge -->
+                <div class="relative aspect-4/3 overflow-hidden bg-amber-50">
+                    <img src="{{ item.image_url }}" alt="{{ item.name }}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500">
+                    
+                    {% if item.badge %}
+                    <div class="absolute top-3 left-3 px-2.5 py-0.5 rounded-full bg-brand-maroon text-brand-gold text-[10px] font-bold uppercase tracking-wider shadow">
+                        {{ item.badge }}
+                    </div>
+                    {% endif %}
+
+                    {% if item.is_pure_ghee %}
+                    <div class="absolute top-3 right-3 px-2 py-0.5 rounded-full bg-white/90 backdrop-blur-xs text-amber-900 text-[10px] font-semibold shadow flex items-center gap-1">
+                        <i data-lucide="sparkles" class="w-3 h-3 text-brand-gold"></i> Pure Ghee
+                    </div>
+                    {% endif %}
+
+                    <!-- Shelf Life Tag -->
+                    <div class="absolute bottom-2 right-2 px-2 py-0.5 rounded bg-black/60 text-white text-[10px] backdrop-blur-xs">
+                        Shelf Life: {{ item.shelf_life_days }} Days
+                    </div>
+                </div>
+
+                <!-- Content -->
+                <div class="p-4 flex-grow flex flex-col justify-between">
+                    <div>
+                        <div class="flex items-center gap-1 text-amber-500 text-xs mb-1">
+                            <i data-lucide="star" class="w-3.5 h-3.5 fill-current"></i>
+                            <span class="font-bold text-gray-800">{{ item.rating }}</span>
+                            <span class="text-gray-400">({{ item.reviews_count }})</span>
+                        </div>
+                        
+                        <a href="{{ url_for('product_detail', product_id=item.id) }}" class="block">
+                            <h3 class="font-serif font-bold text-base text-gray-900 group-hover:text-brand-maroon transition line-clamp-1">{{ item.name }}</h3>
+                            <div class="text-xs text-amber-700 font-devanagari font-medium mt-0.5">{{ item.name_mr }}</div>
+                        </a>
+                        
+                        <p class="text-xs text-gray-500 mt-2 line-clamp-2">{{ item.tagline }}</p>
+                    </div>
+
+                    <!-- Dynamic Weight Selector Buttons -->
+                    <div class="mt-4 pt-3 border-t border-gray-100">
+                        <div class="flex items-center justify-between text-xs text-gray-500 mb-1.5 font-medium">
+                            <span>Select Pack:</span>
+                            <span class="text-[10px] text-green-700 font-semibold" id="savings-tag-{{ item.id }}">Save on 1kg!</span>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-1 mb-3">
+                            <button type="button" onclick="selectCardWeight('{{ item.id }}', '250g', {{ item.price_250g }})" class="weight-btn-{{ item.id }} active py-1 text-xs font-semibold rounded-lg border border-brand-maroon bg-brand-maroon text-white transition text-center" data-weight="250g">
+                                250g
+                            </button>
+                            <button type="button" onclick="selectCardWeight('{{ item.id }}', '500g', {{ item.price_500g }})" class="weight-btn-{{ item.id }} py-1 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-brand-gold transition text-center" data-weight="500g">
+                                500g
+                            </button>
+                            <button type="button" onclick="selectCardWeight('{{ item.id }}', '1kg', {{ item.price_1kg }})" class="weight-btn-{{ item.id }} py-1 text-xs font-semibold rounded-lg border border-gray-200 bg-white text-gray-700 hover:border-brand-gold transition text-center" data-weight="1kg">
+                                1kg
+                            </button>
+                        </div>
+
+                        <!-- Price & Add to Cart -->
+                        <div class="flex items-center justify-between">
+                            <div>
+                                <span class="text-[10px] text-gray-400 block">Price</span>
+                                <div class="text-lg font-serif font-bold text-brand-maroon">
+                                    ₹<span id="price-display-{{ item.id }}">{{ item.price_250g }}</span>
+                                </div>
+                            </div>
+                            <button type="button" onclick="addCardToCart('{{ item.id }}', '{{ item.name }}', '{{ item.name_mr }}', '{{ item.image_url }}')" class="px-4 py-2 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl font-medium text-xs transition shadow-sm hover:shadow flex items-center gap-1.5">
+                                <i data-lucide="shopping-bag" class="w-3.5 h-3.5 text-brand-gold"></i>
+                                <span>Add</span>
+                            </button>
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+</section>
+
+<!-- Interactive "Build Your Own Sweet Box" Feature Banner -->
+<section class="py-16 bg-gradient-to-r from-[#5B091E] via-brand-maroon to-[#450616] text-white relative overflow-hidden">
+    <div class="absolute right-0 top-0 w-96 h-96 bg-brand-gold/10 rounded-full blur-3xl pointer-events-none"></div>
+
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+            
+            <div class="lg:col-span-7 space-y-5">
+                <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-brand-gold text-brand-maroondark text-xs font-bold uppercase tracking-wider">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i>
+                    <span>Interactive Custom Assortment</span>
+                </div>
+                
+                <h2 class="text-3xl sm:text-4xl lg:text-5xl font-serif font-bold text-white leading-tight">
+                    Build Your Custom <span class="text-brand-gold">Mithai Gift Box</span>
+                </h2>
+                
+                <p class="text-sm sm:text-base text-amber-100/80 leading-relaxed max-w-xl">
+                    Can't pick just one? Handpick 4 of your favorite sweets into an exquisite 4-compartment gold embossed gift box. Mix Satara Kandi Pedha with Shahi Kaju Katli, Motichoor Laddu, and Turkish Anjeer Barfi!
+                </p>
+
+                <div class="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2 text-xs">
+                    <div class="flex items-center gap-2 bg-white/10 p-2.5 rounded-xl backdrop-blur-xs">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-brand-gold"></i>
+                        <span>Choose 4 varieties</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white/10 p-2.5 rounded-xl backdrop-blur-xs">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-brand-gold"></i>
+                        <span>500g or 1kg Box</span>
+                    </div>
+                    <div class="flex items-center gap-2 bg-white/10 p-2.5 rounded-xl backdrop-blur-xs">
+                        <i data-lucide="check-circle" class="w-4 h-4 text-brand-gold"></i>
+                        <span>Free Gift Message</span>
+                    </div>
+                </div>
+
+                <div class="pt-4">
+                    <a href="{{ url_for('custom_box') }}" class="inline-flex items-center gap-2 px-8 py-4 rounded-xl bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-sm transition shadow-xl hover:scale-105">
+                        <i data-lucide="box" class="w-5 h-5"></i>
+                        <span>Start Customizing Your Box Now</span>
+                    </a>
+                </div>
+            </div>
+
+            <!-- Visual Preview Mockup of 4-Slot Sweet Box -->
+            <div class="lg:col-span-5">
+                <div class="bg-amber-100/10 p-5 rounded-3xl border border-brand-gold/30 backdrop-blur-md shadow-2xl">
+                    <div class="text-center font-serif text-brand-gold text-sm font-bold uppercase tracking-wider mb-3">
+                        Traditional 4-Compartment Sweet Box
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 p-3 bg-amber-950/60 rounded-2xl border-2 border-brand-gold/40">
+                        <div class="bg-white/10 rounded-xl p-3 text-center border border-brand-gold/20">
+                            <img src="https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=300" class="w-16 h-16 rounded-full mx-auto object-cover mb-2 border border-brand-gold">
+                            <span class="text-xs font-bold block text-white">Slot 1</span>
+                            <span class="text-[10px] text-amber-200">Kandi Pedha</span>
+                        </div>
+                        <div class="bg-white/10 rounded-xl p-3 text-center border border-brand-gold/20">
+                            <img src="https://images.unsplash.com/photo-1601050690597-df0568f70950?w=300" class="w-16 h-16 rounded-full mx-auto object-cover mb-2 border border-brand-gold">
+                            <span class="text-xs font-bold block text-white">Slot 2</span>
+                            <span class="text-[10px] text-amber-200">Kaju Katli</span>
+                        </div>
+                        <div class="bg-white/10 rounded-xl p-3 text-center border border-brand-gold/20">
+                            <img src="https://images.unsplash.com/photo-1546833999-b9f581a1996d?w=300" class="w-16 h-16 rounded-full mx-auto object-cover mb-2 border border-brand-gold">
+                            <span class="text-xs font-bold block text-white">Slot 3</span>
+                            <span class="text-[10px] text-amber-200">Motichoor Laddu</span>
+                        </div>
+                        <div class="bg-white/10 rounded-xl p-3 text-center border border-brand-gold/20">
+                            <img src="https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=300" class="w-16 h-16 rounded-full mx-auto object-cover mb-2 border border-brand-gold">
+                            <span class="text-xs font-bold block text-white">Slot 4</span>
+                            <span class="text-[10px] text-amber-200">Kesar Malai</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Heritage Story: Satara Tradition -->
+<section class="py-16 bg-white">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center">
+            
+            <div class="order-2 lg:order-1 relative">
+                <div class="relative rounded-3xl overflow-hidden shadow-2xl border-4 border-amber-100">
+                    <img src="https://images.unsplash.com/photo-1599488615731-7e5c2823ff28?w=800&auto=format&fit=crop&q=80" alt="Making of Kandi Pedha" class="w-full h-96 object-cover">
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                    <div class="absolute bottom-6 left-6 right-6 text-white">
+                        <div class="font-serif text-xl font-bold">The Secret of Authentic Kandi Pedha</div>
+                        <p class="text-xs text-amber-200 mt-1">Slow copper-kadai reduction of farm-fresh buffalo milk gives that unmistakable caramel aroma and grainy velvet texture.</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="order-1 lg:order-2 space-y-5">
+                <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Our Heritage Story</span>
+                <h2 class="text-2xl sm:text-3xl lg:text-4xl font-serif font-bold text-brand-maroon leading-tight">
+                    Preserving the Legacy of Legendary Satari Pedha Since 1948
+                </h2>
+                <p class="text-sm text-gray-600 leading-relaxed">
+                    Satara has been the birthplace of India's most cherished caramelized pedhas. At <strong>Mama Pedhewale</strong>, we honor this 78-year-old culinary legacy by never rushing the process. Our khoya is simmered gently for over 6 to 8 hours until it develops its rich chocolate-brown hue naturally.
+                </p>
+                <div class="space-y-3 pt-2">
+                    <div class="flex items-start gap-3">
+                        <div class="p-1 rounded-full bg-amber-100 text-brand-maroon mt-0.5"><i data-lucide="check" class="w-4 h-4"></i></div>
+                        <p class="text-xs text-gray-700"><strong>Zero Additives & No Preservatives:</strong> Prepared purely with khoya, minimal sugar, and organic spices.</p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <div class="p-1 rounded-full bg-amber-100 text-brand-maroon mt-0.5"><i data-lucide="check" class="w-4 h-4"></i></div>
+                        <p class="text-xs text-gray-700"><strong>Direct From Local Satara Dairies:</strong> Milk sourced fresh every morning from trusted local dairy farmers.</p>
+                    </div>
+                    <div class="flex items-start gap-3">
+                        <div class="p-1 rounded-full bg-amber-100 text-brand-maroon mt-0.5"><i data-lucide="check" class="w-4 h-4"></i></div>
+                        <p class="text-xs text-gray-700"><strong>Vacuum Sealed Freshness:</strong> Multi-layer hygienic food-grade packaging ensures original moisture and aroma retainment across transit.</p>
+                    </div>
+                </div>
+                <div class="pt-2">
+                    <a href="{{ url_for('about') }}" class="text-brand-maroon font-bold text-xs uppercase tracking-wider hover:text-brand-golddark flex items-center gap-1">
+                        <span>Read Our Complete Story</span>
+                        <i data-lucide="arrow-right" class="w-4 h-4"></i>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+    </div>
+</section>
+
+<!-- Customer Reviews Section -->
+<section class="py-14 bg-amber-50/40 border-t border-amber-100">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="text-center max-w-xl mx-auto mb-10">
+            <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Loved by Sweet Connoisseurs</span>
+            <h2 class="text-2xl sm:text-3xl font-serif font-bold text-brand-maroon mt-1">What Our Patrons Say</h2>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% for rev in reviews %}
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-amber-100 flex flex-col justify-between">
+                <div>
+                    <div class="flex items-center gap-1 text-amber-500 mb-2">
+                        {% for i in range(rev.rating) %}
+                        <i data-lucide="star" class="w-4 h-4 fill-current"></i>
+                        {% endfor %}
+                    </div>
+                    <p class="text-xs text-gray-600 italic leading-relaxed">
+                        "{{ rev.review_text }}"
+                    </p>
+                </div>
+                <div class="pt-4 mt-4 border-t border-gray-100 flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-xs text-gray-900">{{ rev.customer_name }}</div>
+                        <div class="text-[10px] text-gray-400">{{ rev.city }}</div>
+                    </div>
+                    <span class="text-[10px] text-brand-golddark bg-amber-50 px-2 py-0.5 rounded font-semibold">{{ rev.product_name or 'Verified Order' }}</span>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    // State storage for product card weights
+    const cardWeightState = {};
+
+    function selectCardWeight(productId, weight, price) {
+        cardWeightState[productId] = { weight, price };
+        
+        // Update price display
+        const priceEl = document.getElementById(`price-display-${productId}`);
+        if (priceEl) priceEl.innerText = price;
+
+        // Toggle active button state
+        const buttons = document.querySelectorAll(`.weight-btn-${productId}`);
+        buttons.forEach(btn => {
+            if (btn.dataset.weight === weight) {
+                btn.classList.add('bg-brand-maroon', 'text-white', 'border-brand-maroon');
+                btn.classList.remove('bg-white', 'text-gray-700', 'border-gray-200');
+            } else {
+                btn.classList.remove('bg-brand-maroon', 'text-white', 'border-brand-maroon');
+                btn.classList.add('bg-white', 'text-gray-700', 'border-gray-200');
+            }
+        });
+    }
+
+    function addCardToCart(id, name, name_mr, imageUrl) {
+        const state = cardWeightState[id] || { weight: '250g', price: document.getElementById(`price-display-${id}`).innerText };
+        addToCart({
+            id: id,
+            name: name,
+            name_mr: name_mr,
+            price: state.price,
+            weight: state.weight,
+            image_url: imageUrl,
+            quantity: 1
+        });
+    }
+
+    function checkHeroPincode() {
+        const input = document.getElementById('hero-pincode-input');
+        const status = document.getElementById('hero-pincode-status');
+        const pincode = input.value.trim();
+
+        if (!pincode || pincode.length !== 6) {
+            status.className = "text-xs font-semibold text-red-600 block";
+            status.innerText = "Please enter a valid 6-digit Indian PIN code.";
+            return;
+        }
+
+        status.className = "text-xs font-semibold text-gray-500 block";
+        status.innerText = "Checking serviceability...";
+
+        fetch('/api/check-pincode', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ pincode: pincode })
+        })
+        .then(res => res.json())
+        .then(data => {
+            status.className = "text-xs font-semibold text-green-700 block mt-1";
+            status.innerHTML = `<span class="flex items-center gap-1"><i data-lucide="check-circle" class="w-3.5 h-3.5"></i> ${data.message}</span>`;
+            if (window.lucide) lucide.createIcons();
+        })
+        .catch(err => {
+            status.className = "text-xs font-semibold text-red-600 block";
+            status.innerText = "Unable to check pincode right now.";
+        });
+    }
+</script>
+{% endblock %}
