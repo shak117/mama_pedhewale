@@ -197,5 +197,60 @@ class MamaPedhewaleTests(unittest.TestCase):
         locked_resp = self.client.get('/admin')
         self.assertEqual(locked_resp.status_code, 302)
 
+    def test_11_admin_delete_order(self):
+        # 1. Create a test order
+        order_payload = {
+            'customer': {
+                'name': 'Test Deletion Customer',
+                'phone': '9999999999',
+                'email': 'delete@test.com',
+                'address': 'Test Street',
+                'city': 'Satara',
+                'pincode': '415001'
+            },
+            'items': [{
+                'product_id': 'satara-kandi-pedha',
+                'name': 'Satara Kandi Pedha',
+                'weight': '500g',
+                'quantity': 1,
+                'price': 340
+            }],
+            'total_amount': 340,
+            'payment_method': 'cod',
+            'delivery_slot': 'Morning'
+        }
+        res = self.client.post('/api/orders', data=json.dumps(order_payload), content_type='application/json')
+        order_id = res.get_json()['order_id']
+
+        # 2. Unauthenticated deletion attempt should fail with 401
+        with self.client.session_transaction() as sess:
+            sess.pop('admin_logged_in', None)
+        unauth_del = self.client.post(f'/api/admin/order/{order_id}/delete')
+        self.assertEqual(unauth_del.status_code, 401)
+
+        # 3. Mark as Dispatched to verify pre-dispatch safeguard
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+        self.client.post(f'/api/admin/order/{order_id}/status',
+            data=json.dumps({'status': 'Dispatched'}),
+            content_type='application/json'
+        )
+        dispatched_del = self.client.post(f'/api/admin/order/{order_id}/delete')
+        self.assertEqual(dispatched_del.status_code, 400)
+        self.assertIn(b'pre-dispatch', dispatched_del.data)
+
+        # 4. Reset status to Packed/Confirmed and delete successfully
+        self.client.post(f'/api/admin/order/{order_id}/status',
+            data=json.dumps({'status': 'Packed'}),
+            content_type='application/json'
+        )
+        del_resp = self.client.post(f'/api/admin/order/{order_id}/delete')
+        self.assertEqual(del_resp.status_code, 200)
+        self.assertTrue(del_resp.get_json()['success'])
+
+        # 5. Trying to delete already deleted order returns 404
+        del_404 = self.client.post(f'/api/admin/order/{order_id}/delete')
+        self.assertEqual(del_404.status_code, 404)
+
 if __name__ == '__main__':
     unittest.main()

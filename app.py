@@ -464,6 +464,30 @@ def api_admin_update_order_status(order_id):
     conn.close()
     return jsonify({'success': True, 'order_id': order_id, 'new_status': new_status})
 
+@app.route('/api/admin/order/<order_id>/delete', methods=['POST'])
+def api_admin_delete_order(order_id):
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    conn = get_db()
+    cursor = conn.cursor()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    # Enforce rule: only orders before dispatching can be deleted
+    if order['status'] in ['Dispatched', 'Out for Delivery', 'Delivered']:
+        conn.close()
+        return jsonify({'error': f"Cannot delete order because it has already been marked as '{order['status']}'. Only pre-dispatch orders can be deleted."}), 400
+
+    cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+    cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+    conn.commit()
+    conn.close()
+
+    return jsonify({'success': True, 'order_id': order_id, 'message': f"Order {order_id} deleted successfully."})
+
 @app.route('/api/admin/product/<product_id>/toggle-stock', methods=['POST'])
 def api_admin_toggle_stock(product_id):
     if not session.get('admin_logged_in'):

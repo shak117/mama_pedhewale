@@ -104,7 +104,7 @@
                 </thead>
                 <tbody class="divide-y divide-gray-100">
                     {% for ord in orders %}
-                    <tr class="hover:bg-amber-50/30 transition">
+                    <tr id="order-row-{{ ord.id }}" class="hover:bg-amber-50/30 transition">
                         <td class="py-3.5 px-4">
                             <span class="font-mono font-bold text-brand-maroon text-sm block">{{ ord.id }}</span>
                             <span class="text-[10px] text-gray-400">{{ ord.created_at[:16] }}</span>
@@ -135,9 +135,20 @@
                             </select>
                         </td>
                         <td class="py-3.5 px-4 text-center">
-                            <a href="{{ url_for('order_success', order_id=ord.id) }}" target="_blank" class="p-1.5 text-brand-maroon hover:bg-amber-100 rounded-lg inline-block transition" title="Print Invoice">
-                                <i data-lucide="printer" class="w-4 h-4"></i>
-                            </a>
+                            <div class="flex items-center justify-center gap-1">
+                                <a href="{{ url_for('order_success', order_id=ord.id) }}" target="_blank" class="p-1.5 text-brand-maroon hover:bg-amber-100 rounded-lg inline-block transition" title="Print Invoice">
+                                    <i data-lucide="printer" class="w-4 h-4"></i>
+                                </a>
+                                {% if ord.status in ['Confirmed', 'Packed', 'Pending', 'Cancelled'] %}
+                                <button type="button" onclick="deleteOrder('{{ ord.id }}', '{{ ord.status }}')" class="p-1.5 text-red-600 hover:bg-red-50 hover:text-red-700 rounded-lg inline-block transition" title="Delete Order (Pre-Dispatch)">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                                {% else %}
+                                <button type="button" disabled class="p-1.5 text-gray-300 cursor-not-allowed rounded-lg inline-block" title="Cannot delete: Order already {{ ord.status }}">
+                                    <i data-lucide="trash-2" class="w-4 h-4"></i>
+                                </button>
+                                {% endif %}
+                            </div>
                         </td>
                     </tr>
                     {% endfor %}
@@ -276,6 +287,40 @@
                     showToast('Stock Updated', 'Sweet marked as Out of Stock.');
                 }
             }
+        });
+    }
+
+    function deleteOrder(orderId, status) {
+        if (status === 'Dispatched' || status === 'Out for Delivery' || status === 'Delivered') {
+            alert('Cannot delete this order because it has already been dispatched or delivered. You can mark it as Cancelled instead.');
+            return;
+        }
+
+        if (!confirm(`Are you sure you want to permanently delete order ${orderId}?\n\nThis will remove the order and its items before dispatch. This action cannot be undone.`)) {
+            return;
+        }
+
+        fetch(`/api/admin/order/${orderId}/delete`, {
+            method: 'POST'
+        })
+        .then(res => res.json())
+        .then(res => {
+            if (res.success) {
+                const row = document.getElementById(`order-row-${orderId}`);
+                if (row) {
+                    row.style.transition = 'all 0.3s ease';
+                    row.style.opacity = '0';
+                    row.style.transform = 'scale(0.95)';
+                    setTimeout(() => row.remove(), 300);
+                }
+                showToast('Order Deleted', `Order ${orderId} removed successfully.`);
+            } else {
+                alert(res.error || 'Failed to delete order.');
+            }
+        })
+        .catch(err => {
+            console.error(err);
+            alert('An error occurred while deleting the order.');
         });
     }
 </script>
