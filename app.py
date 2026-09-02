@@ -22,10 +22,10 @@ def inject_global_data():
     return {
         'nav_categories': categories,
         'current_year': datetime.now().year,
-        'store_phone': '+91 98220 12345',
-        'store_whatsapp': '919822012345',
-        'store_email': 'contact@mamapedhewale.com',
-        'store_address': 'Shop #12, Shivaji Circle, Satara - 415001, Maharashtra'
+        'store_phone': '+91 9699106264',
+        'store_whatsapp': '919699106264',
+        'store_email': 'contact@mamakandipedhewale.com',
+        'store_address': 'Wadhe Phata, NH 4 Highway, Pune - Satara Rd, Satara - 415003, Maharashtra'
     }
 
 # ==================== PAGE ROUTES ====================
@@ -130,7 +130,7 @@ def product_detail(product_id):
 def custom_box():
     conn = get_db()
     # Fetch sweets eligible for custom box
-    sweets = conn.execute("SELECT * FROM products WHERE category_id IN ('pedha', 'laddu', 'kaju-barfi') AND in_stock = 1").fetchall()
+    sweets = conn.execute("SELECT * FROM products WHERE category_id IN ('pedha', 'burfi', 'traditional-mithai') AND in_stock = 1").fetchall()
     conn.close()
     return render_template('custom_box.html', available_sweets=sweets)
 

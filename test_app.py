@@ -14,7 +14,7 @@ class MamaPedhewaleTests(unittest.TestCase):
         response = self.client.get('/')
         self.assertEqual(response.status_code, 200)
         self.assertIn(b'MAMA PEDHEWALE', response.data)
-        self.assertIn(b'Satara Special Kandi Pedha', response.data)
+        self.assertIn(b'Satari Kandi Pedhe', response.data)
 
     def test_02_products_catalog(self):
         response = self.client.get('/products')
@@ -24,7 +24,7 @@ class MamaPedhewaleTests(unittest.TestCase):
         # Category filter test
         cat_resp = self.client.get('/products?category=pedha')
         self.assertEqual(cat_resp.status_code, 200)
-        self.assertIn(b'Satara Special Kandi Pedha', cat_resp.data)
+        self.assertIn(b'Satari Kandi Pedhe', cat_resp.data)
 
     def test_03_product_detail(self):
         response = self.client.get('/product/satara-kandi-pedha')
