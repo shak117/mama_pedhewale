@@ -3,133 +3,305 @@
 {% block title %}Track Your Mithai Order | Mama Pedhewale{% endblock %}
 
 {% block content %}
-<div class="bg-amber-50/40 border-b border-amber-100 py-8">
+<div class="bg-gradient-to-b from-amber-50/70 to-white border-b border-amber-100 py-10">
     <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-        <span class="text-xs font-bold text-amber-700 uppercase tracking-widest">Real-time Order Status</span>
-        <h1 class="text-3xl sm:text-4xl font-serif font-bold text-brand-maroon mt-1">Track Your Sweet Dispatch</h1>
-        <p class="text-xs sm:text-sm text-gray-500 max-w-md mx-auto mt-2">
-            Enter your Order ID (from SMS / Invoice) or your 10-digit mobile number to check the dispatch status.
+        <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-100/80 text-brand-maroon text-[11px] font-bold uppercase tracking-wider mb-3 border border-amber-200">
+            <i data-lucide="navigation" class="w-3.5 h-3.5 text-brand-golddark"></i>
+            <span>Real-Time Satara Dispatch &amp; GPS Transit</span>
+        </div>
+        <h1 class="text-3xl sm:text-4xl font-serif font-bold text-brand-maroon">Track Your Sweet Dispatch</h1>
+        <p class="text-xs sm:text-sm text-gray-600 max-w-lg mx-auto mt-2 leading-relaxed">
+            Enter your unique <strong>Order Tracking ID</strong> (e.g. <code>MP-2026...</code>) or registered 10-digit mobile number to track dispatch status and view live Google Maps location.
         </p>
     </div>
 </div>
 
-<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+<div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-10 space-y-8">
     
     <!-- Search Form -->
-    <div class="bg-white p-6 rounded-3xl shadow-sm border border-amber-100 mb-8 max-w-xl mx-auto">
+    <div class="bg-white p-6 sm:p-7 rounded-3xl shadow-sm border border-amber-200/80 max-w-xl mx-auto">
         <form action="{{ url_for('track_order') }}" method="GET" class="space-y-4">
             <div>
-                <label class="block text-xs font-semibold text-gray-700 mb-1">Order ID</label>
-                <input type="text" name="order_id" value="{{ searched_id }}" placeholder="e.g. MP-20260902-ABC12" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold font-mono uppercase">
+                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <i data-lucide="hash" class="w-3.5 h-3.5 text-brand-golddark"></i>
+                    <span>Unique Order ID</span>
+                </label>
+                <div class="relative">
+                    <input type="text" name="order_id" value="{{ searched_id }}" placeholder="e.g. MP-20260902-ABC12" class="w-full text-sm px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-brand-gold font-mono uppercase bg-gray-50/50">
+                </div>
             </div>
-            <div class="text-center text-xs text-gray-400 font-bold">— OR —</div>
+            
+            <div class="relative flex items-center justify-center">
+                <div class="border-t border-gray-200 w-full"></div>
+                <span class="bg-white px-3 text-[11px] text-gray-400 font-bold uppercase shrink-0">or track via phone</span>
+                <div class="border-t border-gray-200 w-full"></div>
+            </div>
+
             <div>
-                <label class="block text-xs font-semibold text-gray-700 mb-1">Registered 10-digit Mobile Number</label>
-                <input type="tel" name="phone" value="{{ searched_phone }}" placeholder="e.g. 9822012345" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                <label class="block text-xs font-bold text-gray-700 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                    <i data-lucide="phone" class="w-3.5 h-3.5 text-brand-golddark"></i>
+                    <span>Registered 10-digit Mobile Number</span>
+                </label>
+                <div class="relative">
+                    <input type="tel" name="phone" value="{{ searched_phone }}" placeholder="e.g. 9822012345" maxlength="10" class="w-full text-sm px-4 py-3 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 focus:ring-brand-gold focus:border-brand-gold bg-gray-50/50">
+                </div>
             </div>
-            <button type="submit" class="w-full py-3 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition shadow flex items-center justify-center gap-2">
+
+            <button type="submit" class="w-full py-3.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition shadow-md hover:shadow-lg flex items-center justify-center gap-2">
                 <i data-lucide="search" class="w-4 h-4 text-brand-gold"></i>
-                <span>Track Order Status</span>
+                <span>Track Live Order Status</span>
             </button>
         </form>
     </div>
 
     <!-- Error message if any -->
     {% if error %}
-    <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs text-center max-w-xl mx-auto mb-8 font-medium">
-        {{ error }}
+    <div class="bg-red-50 border border-red-200 text-red-700 p-4 rounded-2xl text-xs text-center max-w-xl mx-auto font-medium flex items-center justify-center gap-2">
+        <i data-lucide="alert-circle" class="w-4 h-4 shrink-0 text-red-500"></i>
+        <span>{{ error }}</span>
     </div>
     {% endif %}
 
     <!-- Order Details if Found -->
     {% if order %}
-    <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-amber-200 space-y-6">
-        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-4 gap-2">
+    <div class="bg-white p-6 sm:p-8 rounded-3xl shadow-md border border-amber-200 space-y-8 animate-in fade-in duration-300">
+        
+        <!-- Header & Unique Tracking ID Banner -->
+        <div class="flex flex-col sm:flex-row sm:items-center justify-between border-b border-gray-100 pb-6 gap-4">
             <div>
-                <span class="text-xs text-gray-400 uppercase font-bold tracking-wider">Order Status</span>
-                <h3 class="font-serif text-xl font-bold text-brand-maroon">{{ order.id }}</h3>
-                <span class="text-xs text-gray-500">Placed on {{ order.created_at[:16] }}</span>
+                <div class="flex items-center gap-2 mb-1">
+                    <span class="text-[11px] font-bold text-gray-400 uppercase tracking-wider">Unique Order Tracking ID</span>
+                    <button type="button" onclick="copyTrackingId('{{ order.id }}')" class="text-[10px] px-2 py-0.5 rounded-full bg-amber-100 text-brand-maroon hover:bg-amber-200 font-bold flex items-center gap-1 transition" title="Copy ID">
+                        <i data-lucide="copy" class="w-3 h-3"></i>
+                        <span id="copy-btn-text">Copy</span>
+                    </button>
+                </div>
+                <h3 class="font-serif text-2xl font-bold text-brand-maroon font-mono">{{ order.id }}</h3>
+                <span class="text-xs text-gray-500">Order Placed on {{ order.created_at[:16] }}</span>
             </div>
-            <div>
-                <span class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase bg-green-100 text-green-800">
-                    {{ order.status }}
-                </span>
+            
+            <div class="flex flex-col sm:items-end">
+                <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider mb-1">Current Status</span>
+                <div>
+                    {% if order.status == 'Delivered' %}
+                    <span class="px-4 py-1.5 rounded-full text-xs font-bold uppercase bg-green-100 text-green-800 border border-green-300 flex items-center gap-1.5 shadow-xs">
+                        <i data-lucide="check-circle-2" class="w-4 h-4 text-green-600"></i>
+                        <span>Delivered</span>
+                    </span>
+                    {% elif order.status in ['Dispatched', 'Out for Delivery'] %}
+                    <span class="px-4 py-1.5 rounded-full text-xs font-bold uppercase bg-amber-500 text-gray-900 border border-amber-400 flex items-center gap-1.5 shadow-xs animate-pulse">
+                        <i data-lucide="truck" class="w-4 h-4"></i>
+                        <span>{{ order.status }}</span>
+                    </span>
+                    {% else %}
+                    <span class="px-4 py-1.5 rounded-full text-xs font-bold uppercase bg-amber-100 text-brand-maroon border border-amber-300 flex items-center gap-1.5 shadow-xs">
+                        <i data-lucide="package" class="w-4 h-4 text-amber-700"></i>
+                        <span>{{ order.status }}</span>
+                    </span>
+                    {% endif %}
+                </div>
             </div>
         </div>
 
         <!-- Tracking Timeline -->
-        <div class="py-4">
+        <div class="py-2">
             <div class="relative flex items-center justify-between">
                 <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-amber-100 z-0"></div>
                 
+                <!-- Stage 1: Confirmed -->
                 <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-8 h-8 rounded-full bg-brand-maroon text-brand-gold flex items-center justify-center font-bold text-xs shadow">
+                    <div class="w-9 h-9 rounded-full bg-brand-maroon text-brand-gold flex items-center justify-center font-bold text-xs shadow-md">
                         <i data-lucide="check" class="w-4 h-4"></i>
                     </div>
-                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Confirmed</span>
+                    <span class="text-xs font-bold text-gray-800 mt-2">Confirmed</span>
+                    <span class="text-[10px] text-gray-400 hidden sm:block">Mawa Selected</span>
                 </div>
 
+                <!-- Stage 2: Packed -->
                 <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-8 h-8 rounded-full {% if order.status in ['Packed', 'Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                    <div class="w-9 h-9 rounded-full {% if order.status in ['Packed', 'Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
                         <i data-lucide="package" class="w-4 h-4"></i>
                     </div>
-                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Kitchen Packed</span>
+                    <span class="text-xs font-bold text-gray-800 mt-2">Satara Kitchen</span>
+                    <span class="text-[10px] text-gray-400 hidden sm:block">Fresh Packed</span>
                 </div>
 
+                <!-- Stage 3: Dispatched -->
                 <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-8 h-8 rounded-full {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                    <div class="w-9 h-9 rounded-full {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
                         <i data-lucide="truck" class="w-4 h-4"></i>
                     </div>
-                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Dispatched</span>
+                    <span class="text-xs font-bold text-gray-800 mt-2">Dispatched</span>
+                    <span class="text-[10px] text-gray-400 hidden sm:block">In Transit</span>
                 </div>
 
+                <!-- Stage 4: Delivered -->
                 <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-8 h-8 rounded-full {% if order.status == 'Delivered' %}bg-green-600 text-white{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+                    <div class="w-9 h-9 rounded-full {% if order.status == 'Delivered' %}bg-green-600 text-white{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
                         <i data-lucide="home" class="w-4 h-4"></i>
                     </div>
-                    <span class="text-[11px] font-bold text-gray-800 mt-1.5">Delivered</span>
+                    <span class="text-xs font-bold text-gray-800 mt-2">Delivered</span>
+                    <span class="text-[10px] text-gray-400 hidden sm:block">Doorstep</span>
                 </div>
             </div>
         </div>
 
-        <!-- Details Grid -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-amber-50/40 p-4 rounded-2xl text-xs text-gray-600">
+        <!-- ==================== GOOGLE MAPS DISPATCH TRANSIT SECTION ==================== -->
+        <div class="bg-gradient-to-br from-amber-50/80 to-white rounded-3xl p-5 sm:p-7 border border-amber-200 space-y-5">
+            
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-amber-200/60">
+                <div>
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-xl bg-brand-maroon text-brand-gold flex items-center justify-center shadow-xs">
+                            <i data-lucide="map-pin" class="w-4 h-4"></i>
+                        </div>
+                        <div>
+                            <h4 class="font-serif font-bold text-base text-brand-maroon">
+                                {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}
+                                Live Google Maps Dispatch Route &amp; Location
+                                {% else %}
+                                Preparation &amp; Dispatch Origin Location
+                                {% endif %}
+                            </h4>
+                            <p class="text-[11px] text-gray-500">
+                                {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}
+                                Consignment in active transit from Satara Kitchen to {{ order.city }}
+                                {% else %}
+                                Order being freshly handcrafted at our Satara outlet on NH 4 Highway
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+
+                {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}
+                <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-amber-200 text-xs text-gray-700 shadow-xs">
+                    <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                    <span class="font-semibold text-[11px]">AWB: <strong>{{ order.tracking_number or ('MP-EXP-' + order.id[-5:]) }}</strong></span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Route Summary Bar -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">1. Origin Dispatch Hub</span>
+                    <strong class="text-xs text-gray-900 block">Mama Pedhewale Satara</strong>
+                    <span class="text-[11px] text-gray-500">NH-4 Highway, Wadhe Phata, Satara - 415003</span>
+                </div>
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">2. Transit Route</span>
+                    <strong class="text-xs text-gray-900 block">{{ order.courier_name or 'Mama Fresh Express' }}</strong>
+                    <span class="text-[11px] text-gray-500">
+                        {% if order.status in ['Dispatched', 'Out for Delivery'] %}
+                        In Transit &bull; Temperature Controlled Mawa Box
+                        {% elif order.status == 'Delivered' %}
+                        Delivered Safely &bull; Journey Completed
+                        {% else %}
+                        Queued for Express Dispatch after fresh batch packing
+                        {% endif %}
+                    </span>
+                </div>
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">3. Delivery Destination</span>
+                    <strong class="text-xs text-gray-900 block">{{ order.city }}, {{ order.pincode }}</strong>
+                    <span class="text-[11px] text-gray-500">{{ order.customer_name }} &bull; {{ order.delivery_slot }}</span>
+                </div>
+            </div>
+
+            <!-- Embedded Interactive Google Map -->
+            <div class="relative w-full h-72 sm:h-88 rounded-2xl overflow-hidden border-2 border-amber-200 shadow-sm bg-stone-100">
+                {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}
+                <!-- Map showing Customer Destination -->
+                <iframe 
+                    class="w-full h-full"
+                    loading="lazy"
+                    title="Order Delivery Destination Map"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    src="https://maps.google.com/maps?q={{ (order.address_line1 + ', ' + order.city + ', ' + order.pincode)|urlencode }}&t=&z=13&ie=UTF8&iwloc=&output=embed">
+                </iframe>
+                <div class="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl shadow-md border border-amber-200 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse"></span>
+                    <span class="text-xs font-bold text-brand-maroon">Destination: {{ order.city }} ({{ order.pincode }})</span>
+                </div>
+                {% else %}
+                <!-- Map showing Mama Pedhewale Satara Origin -->
+                <iframe 
+                    class="w-full h-full"
+                    loading="lazy"
+                    title="Mama Pedhewale Satara Kitchen Location"
+                    referrerpolicy="no-referrer-when-downgrade"
+                    src="https://maps.google.com/maps?q=Mama+Kandi+Pedhewale+NH4+Highway+Wadhe+Satara+415003&t=&z=15&ie=UTF8&iwloc=&output=embed">
+                </iframe>
+                <div class="absolute top-3 left-3 bg-white/95 backdrop-blur-md px-3.5 py-1.5 rounded-xl shadow-md border border-amber-200 flex items-center gap-2">
+                    <span class="w-2.5 h-2.5 rounded-full bg-amber-500 animate-pulse"></span>
+                    <span class="text-xs font-bold text-brand-maroon">Satara Main Kitchen &bull; Wadhe Phata, Satara</span>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Google Maps External Direct Navigation Link -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <a href="https://www.google.com/maps/dir/?api=1&origin=Mama+Kandi+Pedhewale+NH4+Highway+Wadhe+Satara+415003&destination={{ (order.address_line1 + ', ' + order.city + ', ' + order.pincode)|urlencode }}" target="_blank" rel="noopener noreferrer" class="px-5 py-2.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
+                    <i data-lucide="map" class="w-4 h-4 text-brand-gold"></i>
+                    <span>Open Live Route on Google Maps</span>
+                    <i data-lucide="external-link" class="w-3.5 h-3.5 text-gray-300"></i>
+                </a>
+
+                <div class="flex items-center gap-2">
+                    <a href="https://wa.me/{{ store_whatsapp }}?text=Namaskar!%20I%20am%20tracking%20my%20Mama%20Pedhewale%20Order%20{{ order.id }}.%20Please%20provide%20latest%20dispatch%20status." target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600"></i>
+                        <span>WhatsApp Dispatch Help</span>
+                    </a>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Delivery & Order Details Grid -->
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-amber-50/40 p-5 rounded-2xl text-xs text-gray-600 border border-amber-100">
             <div>
-                <span class="font-bold text-gray-900 block mb-1">Delivering to:</span>
-                <div class="font-semibold text-gray-800">{{ order.customer_name }}</div>
-                <div>{{ order.address_line1 }}, {{ order.city }} - {{ order.pincode }}</div>
+                <span class="font-bold text-gray-900 block mb-1 uppercase tracking-wider text-[10px]">Delivering to:</span>
+                <div class="font-bold text-gray-900 text-sm">{{ order.customer_name }}</div>
+                <div class="text-gray-700 mt-0.5">{{ order.address_line1 }}</div>
+                {% if order.address_line2 %}<div class="text-gray-700">{{ order.address_line2 }}</div>{% endif %}
+                <div class="text-gray-800 font-semibold mt-0.5">{{ order.city }}, {{ order.state }} - {{ order.pincode }}</div>
+                <div class="text-gray-500 mt-1">Phone: {{ order.customer_phone }}</div>
             </div>
             <div>
-                <span class="font-bold text-gray-900 block mb-1">Delivery Timing:</span>
-                <div>Date: <strong>{{ order.delivery_date or 'Next Business Day' }}</strong></div>
-                <div>Slot: {{ order.delivery_slot }}</div>
+                <span class="font-bold text-gray-900 block mb-1 uppercase tracking-wider text-[10px]">Delivery Preferences:</span>
+                <div>Target Date: <strong>{{ order.delivery_date or 'Next Business Day' }}</strong></div>
+                <div>Time Slot: <strong>{{ order.delivery_slot }}</strong></div>
+                <div class="mt-2 text-[11px] text-amber-800 font-medium bg-white p-2.5 rounded-xl border border-amber-200/70">
+                    📦 Packed with oxygen-barrier freshness packaging directly from Satara.
+                </div>
             </div>
         </div>
 
         <!-- Ordered Sweets -->
-        <div class="space-y-2">
-            <h4 class="text-xs font-bold text-gray-900 uppercase tracking-wider">Ordered Sweets:</h4>
+        <div class="space-y-3">
+            <h4 class="text-xs font-bold text-gray-900 uppercase tracking-wider">Ordered Mithai &amp; Savories ({{ items|length }} items):</h4>
             <div class="divide-y divide-gray-100">
                 {% for item in items %}
                 <div class="py-2.5 flex items-center justify-between text-xs">
                     <div>
                         <span class="font-bold text-gray-900">{{ item.product_name }}</span>
-                        <span class="text-gray-500 text-[11px] block">{{ item.weight_selected }} x {{ item.quantity }}</span>
+                        <span class="text-gray-500 text-[11px] block">{{ item.weight_selected }} &times; {{ item.quantity }}</span>
                     </div>
                     <span class="font-bold text-brand-maroon">₹{{ item.item_total }}</span>
                 </div>
                 {% endfor %}
             </div>
             <div class="pt-3 border-t border-gray-200 flex justify-between font-bold text-sm text-gray-900">
-                <span>Total Amount</span>
-                <span class="text-brand-maroon font-serif text-base">₹{{ order.total_amount }}</span>
+                <span>Total Bill Amount</span>
+                <span class="text-brand-maroon font-serif text-lg">₹{{ order.total_amount }}</span>
             </div>
         </div>
 
-        <div class="text-center pt-2">
+        <div class="text-center pt-2 border-t border-gray-100">
             <a href="{{ url_for('order_success', order_id=order.id) }}" class="inline-flex items-center gap-1.5 text-xs font-bold text-brand-maroon hover:underline">
                 <i data-lucide="printer" class="w-4 h-4"></i>
-                <span>View Full Tax Invoice / Receipt</span>
+                <span>View Full Tax Invoice / Printable Receipt</span>
             </a>
         </div>
 
@@ -137,4 +309,20 @@
     {% endif %}
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    function copyTrackingId(orderId) {
+        navigator.clipboard.writeText(orderId).then(() => {
+            const btnText = document.getElementById('copy-btn-text');
+            if (btnText) {
+                btnText.innerText = 'Copied! ✓';
+                setTimeout(() => {
+                    btnText.innerText = 'Copy';
+                }, 2000);
+            }
+        });
+    }
+</script>
 {% endblock %}

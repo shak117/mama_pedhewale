@@ -143,6 +143,20 @@ def init_db():
     )
     """)
 
+    # Ensure tracking columns exist in orders table
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN tracking_number TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN courier_name TEXT DEFAULT 'Mama Fresh Express'")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN dispatched_at TIMESTAMP")
+    except Exception:
+        pass
+
     conn.commit()
     conn.close()
 

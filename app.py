@@ -477,7 +477,15 @@ def api_admin_update_order_status(order_id):
 
     conn = get_db()
     cursor = conn.cursor()
-    if payment_status:
+    if new_status in ['Dispatched', 'Out for Delivery']:
+        cursor.execute("""
+            UPDATE orders 
+            SET status = ?, 
+                tracking_number = COALESCE(tracking_number, 'MP-EXP-' || strftime('%m%d', 'now') || '-' || substr(id, -5)),
+                dispatched_at = COALESCE(dispatched_at, datetime('now', 'localtime'))
+            WHERE id = ?
+        """, (new_status, order_id))
+    elif payment_status:
         cursor.execute("UPDATE orders SET status = ?, payment_status = ? WHERE id = ?", (new_status, payment_status, order_id))
     else:
         cursor.execute("UPDATE orders SET status = ? WHERE id = ?", (new_status, order_id))

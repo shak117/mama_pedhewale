@@ -138,6 +138,19 @@ class MamaPedhewaleTests(unittest.TestCase):
         self.assertEqual(update_resp.status_code, 200)
         self.assertTrue(update_resp.get_json()['success'])
 
+        # Verify dispatch triggers AWB and Google Maps route
+        dispatch_resp = self.client.post(f'/api/admin/order/{order_id}/status',
+            data=json.dumps({'status': 'Dispatched'}),
+            content_type='application/json'
+        )
+        self.assertEqual(dispatch_resp.status_code, 200)
+
+        track_disp = self.client.get(f'/track-order?order_id={order_id}')
+        self.assertEqual(track_disp.status_code, 200)
+        self.assertIn(b'maps.google.com/maps', track_disp.data)
+        self.assertIn(b'Dispatched', track_disp.data)
+        self.assertIn(b'MP-EXP-', track_disp.data)
+
     def test_08_corporate_inquiry(self):
         inq_payload = {
             'company_name': 'Tata Consultancy Services',
