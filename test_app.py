@@ -252,5 +252,66 @@ class MamaPedhewaleTests(unittest.TestCase):
         del_404 = self.client.post(f'/api/admin/order/{order_id}/delete')
         self.assertEqual(del_404.status_code, 404)
 
+    def test_12_super_admin_price_editing(self):
+        # 1. Test regular admin login has is_super_admin = False
+        login_staff = self.client.post('/admin/login', data={
+            'username': 'admin',
+            'password': 'MamaSatara@1948'
+        }, follow_redirects=True)
+        self.assertEqual(login_staff.status_code, 200)
+        with self.client.session_transaction() as sess:
+            self.assertTrue(sess.get('admin_logged_in'))
+            self.assertFalse(sess.get('is_super_admin', False))
+
+        # 2. Regular admin attempting to update prices should receive 403 Forbidden
+        staff_update = self.client.post('/api/admin/product/satara-kandi-pedha/update-prices',
+            data=json.dumps({'price_250g': 200, 'price_500g': 380, 'price_1kg': 720}),
+            content_type='application/json'
+        )
+        self.assertEqual(staff_update.status_code, 403)
+        self.assertIn(b'Super Admin', staff_update.data)
+
+        # 3. Super admin login
+        login_super = self.client.post('/admin/login', data={
+            'username': 'superadmin',
+            'password': 'MamaSuper@1948'
+        }, follow_redirects=True)
+        self.assertEqual(login_super.status_code, 200)
+        with self.client.session_transaction() as sess:
+            self.assertTrue(sess.get('admin_logged_in'))
+            self.assertTrue(sess.get('is_super_admin', False))
+
+        # 4. Invalid price test (0 or negative price)
+        bad_price = self.client.post('/api/admin/product/satara-kandi-pedha/update-prices',
+            data=json.dumps({'price_250g': 0, 'price_500g': 380, 'price_1kg': 720}),
+            content_type='application/json'
+        )
+        self.assertEqual(bad_price.status_code, 400)
+
+        # 5. Successful price update by Super Admin
+        valid_update = self.client.post('/api/admin/product/satara-kandi-pedha/update-prices',
+            data=json.dumps({'price_250g': 210, 'price_500g': 390, 'price_1kg': 750}),
+            content_type='application/json'
+        )
+        self.assertEqual(valid_update.status_code, 200)
+        res_data = valid_update.get_json()
+        self.assertTrue(res_data['success'])
+        self.assertEqual(res_data['price_250g'], 210)
+        self.assertEqual(res_data['price_500g'], 390)
+        self.assertEqual(res_data['price_1kg'], 750)
+
+        # 6. Verify public store reflects new prices
+        store_res = self.client.get('/product/satara-kandi-pedha')
+        self.assertEqual(store_res.status_code, 200)
+        self.assertIn(b'210', store_res.data)
+        self.assertIn(b'390', store_res.data)
+        self.assertIn(b'750', store_res.data)
+
+        # Restore original price
+        self.client.post('/api/admin/product/satara-kandi-pedha/update-prices',
+            data=json.dumps({'price_250g': 180, 'price_500g': 340, 'price_1kg': 650}),
+            content_type='application/json'
+        )
+
 if __name__ == '__main__':
     unittest.main()

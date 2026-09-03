@@ -13,6 +13,9 @@ app.config['SECRET_KEY'] = 'mama-pedhewale-secret-key-1948'
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
 ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'MamaSatara@1948')
 
+SUPER_ADMIN_USERNAME = os.environ.get('SUPER_ADMIN_USERNAME', 'superadmin')
+SUPER_ADMIN_PASSWORD = os.environ.get('SUPER_ADMIN_PASSWORD', 'MamaSuper@1948')
+
 def generate_order_id():
     suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     return f"MP-{datetime.now().strftime('%Y%m%d')}-{suffix}"
@@ -199,8 +202,15 @@ def admin_login():
     if request.method == 'POST':
         username = request.form.get('username', '').strip()
         password = request.form.get('password', '').strip()
-        if username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+        if username == SUPER_ADMIN_USERNAME and password == SUPER_ADMIN_PASSWORD:
             session['admin_logged_in'] = True
+            session['is_super_admin'] = True
+            session['admin_role'] = 'Super Admin'
+            return redirect(url_for('admin'))
+        elif username == ADMIN_USERNAME and password == ADMIN_PASSWORD:
+            session['admin_logged_in'] = True
+            session['is_super_admin'] = False
+            session['admin_role'] = 'Staff Admin'
             return redirect(url_for('admin'))
         else:
             error = "Invalid admin username or password. Please try again."
@@ -209,6 +219,8 @@ def admin_login():
 @app.route('/admin/logout')
 def admin_logout():
     session.pop('admin_logged_in', None)
+    session.pop('is_super_admin', None)
+    session.pop('admin_role', None)
     return redirect(url_for('admin_login'))
 
 @app.route('/admin')
@@ -239,7 +251,16 @@ def admin():
     inquiries = conn.execute("SELECT * FROM corporate_inquiries ORDER BY created_at DESC").fetchall()
     conn.close()
 
-    return render_template('admin.html', stats=stats, orders=orders, products=products_list, inquiries=inquiries, current_filter=status_filter)
+    return render_template(
+        'admin.html',
+        stats=stats,
+        orders=orders,
+        products=products_list,
+        inquiries=inquiries,
+        current_filter=status_filter,
+        is_super_admin=session.get('is_super_admin', False),
+        admin_role=session.get('admin_role', 'Staff Admin')
+    )
 
 # ==================== REST API ENDPOINTS ====================
 
@@ -500,6 +521,50 @@ def api_admin_toggle_stock(product_id):
     new_val = conn.execute("SELECT in_stock FROM products WHERE id = ?", (product_id,)).fetchone()[0]
     conn.close()
     return jsonify({'success': True, 'product_id': product_id, 'in_stock': bool(new_val)})
+
+@app.route('/api/admin/product/<product_id>/update-prices', methods=['POST'])
+def api_admin_update_product_prices(product_id):
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login.'}), 401
+    
+    if not session.get('is_super_admin'):
+        return jsonify({'error': 'Super Admin privileges required to update product prices.'}), 403
+
+    data = request.get_json() or {}
+    try:
+        p250 = int(data.get('price_250g', 0))
+        p500 = int(data.get('price_500g', 0))
+        p1kg = int(data.get('price_1kg', 0))
+    except (ValueError, TypeError):
+        return jsonify({'error': 'Prices must be valid positive numbers.'}), 400
+
+    if p250 <= 0 or p500 <= 0 or p1kg <= 0:
+        return jsonify({'error': 'All pack prices (250g, 500g, 1kg) must be greater than zero.'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+    prod = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+    if not prod:
+        conn.close()
+        return jsonify({'error': 'Product not found.'}), 404
+
+    cursor.execute("""
+        UPDATE products 
+        SET price_250g = ?, price_500g = ?, price_1kg = ?
+        WHERE id = ?
+    """, (p250, p500, p1kg, product_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'success': True,
+        'product_id': product_id,
+        'product_name': prod['name'],
+        'price_250g': p250,
+        'price_500g': p500,
+        'price_1kg': p1kg,
+        'message': f"Prices updated for {prod['name']}."
+    })
 
 if __name__ == '__main__':
     init_db()
