@@ -79,10 +79,10 @@
     <!-- Main Navigation Header -->
     <header class="sticky top-0 z-40 bg-white/95 backdrop-blur-md shadow-xs border-b border-amber-100 transition-all duration-300">
         <div class="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-20 gap-1.5 sm:gap-2 xl:gap-4">
+            <div class="flex items-center justify-between h-20 gap-1.5 sm:gap-2 xl:gap-4 relative">
                 
                 <!-- Mobile Menu Button -->
-                <div class="flex items-center lg:hidden shrink-0">
+                <div class="flex items-center lg:hidden shrink-0 z-10">
                     <button type="button" id="mobile-menu-btn" class="p-1.5 rounded-lg text-brand-maroon hover:text-brand-gold hover:bg-amber-50 focus:outline-none" aria-label="Open menu">
                         <i data-lucide="menu" class="w-6 h-6"></i>
                     </button>
@@ -91,8 +91,8 @@
                     </button>
                 </div>
 
-                <!-- Logo & Heritage Brand Title (Centered on mobile, left on desktop) -->
-                <div class="flex items-center justify-center lg:justify-start flex-1 lg:flex-initial min-w-0">
+                <!-- Logo & Heritage Brand Title (Centered on mobile via absolute, static natural flow on desktop) -->
+                <div class="lg:static absolute left-1/2 -translate-x-1/2 lg:translate-x-0 lg:left-auto flex items-center shrink-0">
                     <a href="{{ url_for('index') }}" class="flex items-center gap-2 sm:gap-3 group shrink-0 whitespace-nowrap">
                         <!-- Heritage Emblem Icon -->
                         <div class="w-9 h-9 sm:w-11 sm:h-11 xl:w-12 xl:h-12 rounded-full bg-gradient-to-br from-brand-maroon to-brand-maroondark border-2 border-brand-gold flex items-center justify-center shadow-md group-hover:scale-105 transition-transform duration-300 shrink-0">
@@ -109,7 +109,7 @@
                 </div>
 
                 <!-- Desktop Navigation Links -->
-                <nav class="hidden lg:flex items-center space-x-1 xl:space-x-2 2xl:space-x-3 font-medium text-xs xl:text-sm text-gray-700 shrink-0">
+                <nav class="hidden lg:flex items-center space-x-1 xl:space-x-2 2xl:space-x-3 font-medium text-xs xl:text-sm text-gray-700 shrink-0 ml-4 xl:ml-6">
                     <a href="{{ url_for('index') }}" class="px-2.5 xl:px-3 py-2 rounded-lg hover:text-brand-maroon hover:bg-amber-50 transition whitespace-nowrap shrink-0">Home</a>
                     
                     <div class="relative group shrink-0">
@@ -144,7 +144,7 @@
                 </nav>
 
                 <!-- Actions: Search & Cart Button -->
-                <div class="flex items-center space-x-1.5 sm:space-x-2 shrink-0">
+                <div class="flex items-center space-x-1.5 sm:space-x-2 shrink-0 z-10">
                     <!-- Full Search Pill on XL screens -->
                     <button type="button" onclick="openSearchModal()" class="hidden xl:flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-50 border border-gray-200 text-gray-500 hover:text-brand-maroon hover:border-brand-gold transition text-xs font-normal whitespace-nowrap shrink-0">
                         <i data-lucide="search" class="w-4 h-4 text-gray-400 shrink-0"></i>
