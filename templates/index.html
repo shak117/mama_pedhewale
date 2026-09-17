@@ -6,76 +6,82 @@
 <!-- ==========================================================================
      1. CINEMATIC HERO SECTION (3 AUTOMATIC ROTATING SLIDES)
      ========================================================================== -->
-<section id="hero-slider-section" class="relative bg-brand-maroondark text-white overflow-hidden min-h-[640px] sm:min-h-[700px] lg:min-h-[780px] flex items-center select-none" aria-roledescription="carousel" aria-label="Mama Pedhewale Highlights">
+<section id="hero-slider-section" class="relative bg-[#1A0207] text-white overflow-hidden min-h-[640px] sm:min-h-[700px] lg:min-h-[780px] flex items-center select-none" aria-roledescription="carousel" aria-label="Mama Pedhewale Highlights">
 
-    <!-- Soft Header-to-Hero Blending Gradient: gently merges header's warm undertone into hero's rich atmosphere without obscuring food imagery -->
-    <div class="absolute top-0 inset-x-0 h-14 sm:h-20 z-15 pointer-events-none bg-gradient-to-b from-[#2E050D]/40 via-[#2E050D]/15 to-transparent"></div>
+    <!-- Soft Header-to-Hero Blending Gradient: seamlessly merges royal maroon header into hero -->
+    <div class="absolute top-0 inset-x-0 h-16 sm:h-24 z-15 pointer-events-none bg-gradient-to-b from-[#24030A] via-[#24030A]/60 to-transparent"></div>
 
     <!-- Ambient Vignette & Decorative Radial Glows -->
     <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-r from-black/85 via-black/45 to-black/75"></div>
-    <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-[#24030B] via-transparent to-black/30"></div>
+    <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-[#140205] via-transparent to-black/30"></div>
     <div class="absolute top-0 right-0 w-96 sm:w-[500px] h-96 sm:h-[500px] bg-brand-gold/15 rounded-full blur-3xl pointer-events-none z-10"></div>
     <div class="absolute bottom-0 left-0 w-80 sm:w-[450px] h-80 sm:h-[450px] bg-brand-maroon/30 rounded-full blur-3xl pointer-events-none z-10"></div>
 
     <!-- Slide 1: Signature Satari Kandi Pedhe -->
     <div class="hero-slide active" data-slide-index="0" role="group" aria-roledescription="slide" aria-label="1 of 3: Signature Satari Kandi Pedhe">
-        <!-- Background Imagery with Smooth Ken Burns Scale -->
+        <!-- Background Imagery with Smooth Ken Burns Scale & Right-Focused Sweet Presentation -->
         <div class="absolute inset-0 w-full h-full overflow-hidden">
-            <img src="/static/images/official/satari-kandi-pedhe.jpg" alt="Authentic Satara Kandi Pedhe" class="hero-kenburns w-full h-full object-cover object-center opacity-85">
+            <img src="/static/images/official/satari-kandi-pedhe.jpg" alt="Authentic Satara Kandi Pedhe" class="hero-kenburns w-full h-full object-cover object-right lg:object-[80%_50%] opacity-90">
         </div>
+
+        <!-- Controlled Directional Contrast Shield: Heavy protective contrast on the left text area, fading out to 100% vibrant photography on the right -->
+        <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-r from-[#140205]/98 via-[#140205]/90 sm:via-[#140205]/80 to-transparent lg:w-3/4"></div>
+        <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-[#140205] via-transparent to-black/40"></div>
 
         <!-- Slide Content Overlay -->
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 w-full py-16 sm:py-24">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
                 
-                <!-- Left Hero Copy -->
-                <div class="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
-                    <div class="hero-elem-1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-gold/20 border border-brand-gold/50 text-brand-goldlight text-xs font-bold uppercase tracking-widest backdrop-blur-md shadow-sm">
-                        <span class="w-2 h-2 rounded-full bg-brand-gold animate-ping"></span>
-                        <span>Satara's Historic Recipe • Since 1948</span>
-                    </div>
-
-                    <h1 class="hero-elem-2 text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif font-bold text-white leading-tight tracking-tight">
-                        The Legendary Taste of <span class="text-brand-gold text-shimmer block sm:inline">Satari Kandi Pedha</span>
-                    </h1>
-
-                    <p class="hero-elem-3 text-sm sm:text-base lg:text-lg text-amber-100/90 max-w-xl leading-relaxed font-light mx-auto lg:mx-0">
-                        Slow-caramelized for over 8 hours in traditional copper vats using 100% pure thick buffalo milk mawa and hand-ground green cardamom. 78 years of royal authenticity.
-                    </p>
-
-                    <!-- CTAs -->
-                    <div class="hero-elem-4 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
-                        <a href="{{ url_for('products') }}" class="px-7 py-3.5 sm:py-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-xs sm:text-sm rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-0.5 flex items-center gap-2">
-                            <span>Order Sweets Online</span>
-                            <i data-lucide="arrow-right" class="w-4 h-4 text-brand-maroondark"></i>
-                        </a>
-                        <a href="{{ url_for('custom_box') }}" class="px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition duration-300 flex items-center gap-2">
-                            <i data-lucide="box" class="w-4 h-4 text-brand-gold"></i>
-                            <span>Build Custom Box</span>
-                        </a>
-                    </div>
-
-                    <!-- Purity Quality Badges -->
-                    <div class="hero-elem-4 pt-6 border-t border-white/15 max-w-lg mx-auto lg:mx-0 grid grid-cols-3 gap-2 sm:gap-4 text-left">
-                        <div class="flex items-center gap-2 bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <i data-lucide="shield-check" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <div class="leading-tight">
-                                <span class="text-[11px] sm:text-xs font-bold block text-white">100% Khoya</span>
-                                <span class="text-[9px] sm:text-[10px] text-amber-200/70">Pure buffalo milk</span>
-                            </div>
+                <!-- Left Hero Copy with Frosted Editorial Panel -->
+                <div class="lg:col-span-7">
+                    <div class="hero-text-panel rounded-3xl p-6 sm:p-8 lg:p-10 space-y-5 sm:space-y-6 text-center lg:text-left">
+                        <div class="hero-elem-1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-brand-gold/25 border border-brand-gold/60 text-brand-goldlight text-xs font-bold uppercase tracking-widest backdrop-blur-md shadow-sm">
+                            <span class="w-2 h-2 rounded-full bg-brand-gold animate-ping"></span>
+                            <span>Satara's Historic Recipe • Since 1948</span>
                         </div>
-                        <div class="flex items-center gap-2 bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <i data-lucide="flame" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <div class="leading-tight">
-                                <span class="text-[11px] sm:text-xs font-bold block text-white">Shuddh Ghee</span>
-                                <span class="text-[9px] sm:text-[10px] text-amber-200/70">Zero palm oil</span>
-                            </div>
+
+                        <h1 class="hero-elem-2 hero-title-shadow text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-serif font-bold text-white leading-tight tracking-tight">
+                            The Legendary Taste of <span class="text-brand-gold block sm:inline">Satari Kandi Pedha</span>
+                        </h1>
+
+                        <p class="hero-elem-3 hero-copy-shadow text-sm sm:text-base lg:text-lg text-amber-100/95 max-w-xl leading-relaxed font-normal mx-auto lg:mx-0">
+                            Slow-caramelized for over 8 hours in traditional copper vats using 100% pure thick buffalo milk mawa and hand-ground green cardamom. 78 years of royal authenticity.
+                        </p>
+
+                        <!-- CTAs -->
+                        <div class="hero-elem-4 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+                            <a href="{{ url_for('products') }}" class="px-7 py-3.5 sm:py-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-xs sm:text-sm rounded-xl shadow-xl hover:shadow-2xl transition duration-300 transform hover:-translate-y-0.5 flex items-center gap-2">
+                                <span>Order Sweets Online</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4 text-brand-maroondark"></i>
+                            </a>
+                            <a href="{{ url_for('custom_box') }}" class="px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition duration-300 flex items-center gap-2">
+                                <i data-lucide="box" class="w-4 h-4 text-brand-gold"></i>
+                                <span>Build Custom Box</span>
+                            </a>
                         </div>
-                        <div class="flex items-center gap-2 bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <i data-lucide="truck" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <div class="leading-tight">
-                                <span class="text-[11px] sm:text-xs font-bold block text-white">Express Dispatch</span>
-                                <span class="text-[9px] sm:text-[10px] text-amber-200/70">Pan-India sealed</span>
+
+                        <!-- Purity Quality Badges -->
+                        <div class="hero-elem-4 pt-6 border-t border-white/15 max-w-lg mx-auto lg:mx-0 grid grid-cols-3 gap-2 sm:gap-4 text-left">
+                            <div class="flex items-center gap-2 bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <i data-lucide="shield-check" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                                <div class="leading-tight">
+                                    <span class="text-[11px] sm:text-xs font-bold block text-white">100% Khoya</span>
+                                    <span class="text-[9px] sm:text-[10px] text-amber-200/80">Buffalo milk</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <i data-lucide="flame" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                                <div class="leading-tight">
+                                    <span class="text-[11px] sm:text-xs font-bold block text-white">Shuddh Ghee</span>
+                                    <span class="text-[9px] sm:text-[10px] text-amber-200/80">Desi cow ghee</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <i data-lucide="truck" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                                <div class="leading-tight">
+                                    <span class="text-[11px] sm:text-xs font-bold block text-white">Express Dispatch</span>
+                                    <span class="text-[9px] sm:text-[10px] text-amber-200/80">Pan-India sealed</span>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -94,7 +100,7 @@
                                 <div class="absolute bottom-3 left-4 right-4 text-white">
                                     <div class="text-xs text-brand-gold font-devanagari">सातारी खास कंदी पेढे</div>
                                     <h3 class="font-serif text-lg font-bold">Original Satara Pedha</h3>
-                                    <p class="text-[11px] text-amber-200/90 line-clamp-1">Caramelized mawa roasted with elaichi & nutmeg</p>
+                                    <p class="text-[11px] text-amber-200/90 line-clamp-1">Caramelized mawa roasted with elaichi &amp; nutmeg</p>
                                 </div>
                             </div>
                             <div class="p-3 flex items-center justify-between">
@@ -117,49 +123,56 @@
 
     <!-- Slide 2: Heritage & Artisanal Craftsmanship -->
     <div class="hero-slide" data-slide-index="1" role="group" aria-roledescription="slide" aria-label="2 of 3: Heritage and Tradition">
+        <!-- Background Imagery with Smooth Ken Burns Scale & Right-Focused Presentation -->
         <div class="absolute inset-0 w-full h-full overflow-hidden">
-            <img src="/static/images/official/special-jaggery-kandi-pedha.jpg" alt="Artisanal Roasting Tradition" class="hero-kenburns w-full h-full object-cover object-center opacity-85">
+            <img src="/static/images/official/special-jaggery-kandi-pedha.jpg" alt="Artisanal Roasting Tradition" class="hero-kenburns w-full h-full object-cover object-right lg:object-[80%_50%] opacity-90">
         </div>
+
+        <!-- Controlled Directional Contrast Shield -->
+        <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-r from-[#140205]/98 via-[#140205]/90 sm:via-[#140205]/80 to-transparent lg:w-3/4"></div>
+        <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-[#140205] via-transparent to-black/40"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 w-full py-16 sm:py-24">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
                 
-                <div class="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
-                    <div class="hero-elem-1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/20 border border-amber-400/50 text-amber-200 text-xs font-bold uppercase tracking-widest backdrop-blur-md shadow-sm">
-                        <i data-lucide="award" class="w-3.5 h-3.5 text-brand-gold"></i>
-                        <span>Culinary Pride of Maharashtra</span>
-                    </div>
-
-                    <h2 class="hero-elem-2 text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif font-bold text-white leading-tight tracking-tight">
-                        78 Years of <span class="text-brand-gold block sm:inline">Pure Satara Devotion</span>
-                    </h2>
-
-                    <p class="hero-elem-3 text-sm sm:text-base lg:text-lg text-amber-100/90 max-w-xl leading-relaxed font-light mx-auto lg:mx-0">
-                        Honoring the time-tested copper-kadai reduction method passed down through generations. Fresh morning milk from local Satara dairy farmers, shuddh cow ghee, and zero artificial coloring.
-                    </p>
-
-                    <div class="hero-elem-4 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
-                        <a href="{{ url_for('about') }}" class="px-7 py-3.5 sm:py-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-xs sm:text-sm rounded-xl shadow-xl hover:shadow-2xl transition duration-300 flex items-center gap-2">
-                            <span>Discover Our Legacy</span>
-                            <i data-lucide="arrow-right" class="w-4 h-4 text-brand-maroondark"></i>
-                        </a>
-                        <a href="{{ url_for('products', category='pedha') }}" class="px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition duration-300">
-                            <span>Explore All Pedhas</span>
-                        </a>
-                    </div>
-
-                    <div class="hero-elem-4 pt-6 border-t border-white/15 max-w-lg mx-auto lg:mx-0 grid grid-cols-3 gap-2 sm:gap-4 text-left">
-                        <div class="bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <span class="text-base sm:text-lg font-serif font-bold text-brand-gold block">1948</span>
-                            <span class="text-[10px] text-amber-200/80">Founding Year in Satara</span>
+                <div class="lg:col-span-7">
+                    <div class="hero-text-panel rounded-3xl p-6 sm:p-8 lg:p-10 space-y-5 sm:space-y-6 text-center lg:text-left">
+                        <div class="hero-elem-1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-amber-500/25 border border-amber-400/60 text-amber-200 text-xs font-bold uppercase tracking-widest backdrop-blur-md shadow-sm">
+                            <i data-lucide="award" class="w-3.5 h-3.5 text-brand-gold"></i>
+                            <span>Culinary Pride of Maharashtra</span>
                         </div>
-                        <div class="bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <span class="text-base sm:text-lg font-serif font-bold text-brand-gold block">8+ Hours</span>
-                            <span class="text-[10px] text-amber-200/80">Artisanal Copper Roasting</span>
+
+                        <h2 class="hero-elem-2 hero-title-shadow text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-serif font-bold text-white leading-tight tracking-tight">
+                            78 Years of <span class="text-brand-gold block sm:inline">Pure Satara Devotion</span>
+                        </h2>
+
+                        <p class="hero-elem-3 hero-copy-shadow text-sm sm:text-base lg:text-lg text-amber-100/95 max-w-xl leading-relaxed font-normal mx-auto lg:mx-0">
+                            Honoring the time-tested copper-kadai reduction method passed down through generations. Fresh morning milk from local Satara dairy farmers, shuddh cow ghee, and zero artificial coloring.
+                        </p>
+
+                        <div class="hero-elem-4 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+                            <a href="{{ url_for('about') }}" class="px-7 py-3.5 sm:py-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-xs sm:text-sm rounded-xl shadow-xl hover:shadow-2xl transition duration-300 flex items-center gap-2">
+                                <span>Discover Our Legacy</span>
+                                <i data-lucide="arrow-right" class="w-4 h-4 text-brand-maroondark"></i>
+                            </a>
+                            <a href="{{ url_for('products', category='pedha') }}" class="px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition duration-300">
+                                <span>Explore All Pedhas</span>
+                            </a>
                         </div>
-                        <div class="bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <span class="text-base sm:text-lg font-serif font-bold text-brand-gold block">50,000+</span>
-                            <span class="text-[10px] text-amber-200/80">Families Delighted</span>
+
+                        <div class="hero-elem-4 pt-6 border-t border-white/15 max-w-lg mx-auto lg:mx-0 grid grid-cols-3 gap-2 sm:gap-4 text-left">
+                            <div class="bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <span class="text-base sm:text-lg font-serif font-bold text-brand-gold block">1948</span>
+                                <span class="text-[10px] text-amber-200/80">Founding Year in Satara</span>
+                            </div>
+                            <div class="bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <span class="text-base sm:text-lg font-serif font-bold text-brand-gold block">8+ Hours</span>
+                                <span class="text-[10px] text-amber-200/80">Artisanal Copper Roasting</span>
+                            </div>
+                            <div class="bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <span class="text-base sm:text-lg font-serif font-bold text-brand-gold block">50,000+</span>
+                                <span class="text-[10px] text-amber-200/80">Families Delighted</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -193,57 +206,64 @@
 
     <!-- Slide 3: Royal Gifting & Festivals -->
     <div class="hero-slide" data-slide-index="2" role="group" aria-roledescription="slide" aria-label="3 of 3: Royal Gifting and Special Occasions">
+        <!-- Background Imagery with Smooth Ken Burns Scale & Right-Focused Presentation -->
         <div class="absolute inset-0 w-full h-full overflow-hidden">
-            <img src="/static/images/official/mix-mithaei.jpg" alt="Royal Mithai Gift Hampers" class="hero-kenburns w-full h-full object-cover object-center opacity-85">
+            <img src="/static/images/official/mix-mithaei.jpg" alt="Royal Mithai Gift Hampers" class="hero-kenburns w-full h-full object-cover object-right lg:object-[82%_50%] opacity-90">
         </div>
+
+        <!-- Controlled Directional Contrast Shield: Extra Protection Against Silver Foil & Bright Sweets -->
+        <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-r from-[#140205]/98 via-[#140205]/90 sm:via-[#140205]/80 to-transparent lg:w-3/4"></div>
+        <div class="absolute inset-0 z-10 pointer-events-none bg-gradient-to-t from-[#140205] via-transparent to-black/40"></div>
 
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-20 w-full py-16 sm:py-24">
             <div class="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center">
                 
-                <div class="lg:col-span-7 space-y-5 sm:space-y-6 text-center lg:text-left">
-                    <div class="hero-elem-1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/20 border border-red-400/50 text-amber-100 text-xs font-bold uppercase tracking-widest backdrop-blur-md shadow-sm">
-                        <i data-lucide="gift" class="w-3.5 h-3.5 text-brand-gold"></i>
-                        <span>Festivals • Weddings • Corporate Hampers</span>
-                    </div>
-
-                    <h2 class="hero-elem-2 text-3xl sm:text-5xl lg:text-6xl xl:text-7xl font-serif font-bold text-white leading-tight tracking-tight">
-                        Celebrate With <span class="text-brand-gold block sm:inline">Royal Mithai Hampers</span>
-                    </h2>
-
-                    <p class="hero-elem-3 text-sm sm:text-base lg:text-lg text-amber-100/90 max-w-xl leading-relaxed font-light mx-auto lg:mx-0">
-                        Exquisite gold-embossed gift boxes, festive assortments, and our interactive 4-compartment customizable sweet box. Sealed airtight in food-grade packaging for pan-India courier dispatch.
-                    </p>
-
-                    <div class="hero-elem-4 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
-                        <a href="{{ url_for('custom_box') }}" class="px-7 py-3.5 sm:py-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-xs sm:text-sm rounded-xl shadow-xl hover:shadow-2xl transition duration-300 flex items-center gap-2">
-                            <span>Build Custom Gift Box</span>
-                            <i data-lucide="gift" class="w-4 h-4 text-brand-maroondark"></i>
-                        </a>
-                        <a href="{{ url_for('corporate') }}" class="px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition duration-300">
-                            <span>Corporate Gifting</span>
-                        </a>
-                    </div>
-
-                    <div class="hero-elem-4 pt-6 border-t border-white/15 max-w-lg mx-auto lg:mx-0 grid grid-cols-3 gap-2 sm:gap-4 text-left">
-                        <div class="flex items-center gap-2 bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <i data-lucide="check-circle" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <div class="leading-tight">
-                                <span class="text-[11px] sm:text-xs font-bold block text-white">4 Sweets In 1</span>
-                                <span class="text-[9px] sm:text-[10px] text-amber-200/70">Custom assortments</span>
-                            </div>
+                <div class="lg:col-span-7">
+                    <div class="hero-text-panel rounded-3xl p-6 sm:p-8 lg:p-10 space-y-5 sm:space-y-6 text-center lg:text-left">
+                        <div class="hero-elem-1 inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-red-500/25 border border-red-400/60 text-amber-100 text-xs font-bold uppercase tracking-widest backdrop-blur-md shadow-sm">
+                            <i data-lucide="gift" class="w-3.5 h-3.5 text-brand-gold"></i>
+                            <span>Festivals • Weddings • Corporate Hampers</span>
                         </div>
-                        <div class="flex items-center gap-2 bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <i data-lucide="award" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <div class="leading-tight">
-                                <span class="text-[11px] sm:text-xs font-bold block text-white">Luxury Gold Box</span>
-                                <span class="text-[9px] sm:text-[10px] text-amber-200/70">Embossed packaging</span>
-                            </div>
+
+                        <h2 class="hero-elem-2 hero-title-shadow text-3xl sm:text-4xl lg:text-5xl xl:text-6xl font-serif font-bold text-white leading-tight tracking-tight">
+                            Celebrate With <span class="text-brand-gold block sm:inline">Royal Mithai Hampers</span>
+                        </h2>
+
+                        <p class="hero-elem-3 hero-copy-shadow text-sm sm:text-base lg:text-lg text-amber-100/95 max-w-xl leading-relaxed font-normal mx-auto lg:mx-0">
+                            Exquisite gold-embossed gift boxes, festive assortments, and our interactive 4-compartment customizable sweet box. Sealed airtight in food-grade packaging for pan-India courier dispatch.
+                        </p>
+
+                        <div class="hero-elem-4 flex flex-wrap items-center justify-center lg:justify-start gap-3 sm:gap-4 pt-2">
+                            <a href="{{ url_for('custom_box') }}" class="px-7 py-3.5 sm:py-4 bg-brand-gold hover:bg-brand-golddark text-brand-maroondark font-bold text-xs sm:text-sm rounded-xl shadow-xl hover:shadow-2xl transition duration-300 flex items-center gap-2">
+                                <span>Build Custom Gift Box</span>
+                                <i data-lucide="gift" class="w-4 h-4 text-brand-maroondark"></i>
+                            </a>
+                            <a href="{{ url_for('corporate') }}" class="px-6 py-3.5 sm:py-4 bg-white/10 hover:bg-white/20 text-white border border-white/30 backdrop-blur-md font-semibold text-xs sm:text-sm rounded-xl transition duration-300">
+                                <span>Corporate Gifting</span>
+                            </a>
                         </div>
-                        <div class="flex items-center gap-2 bg-black/20 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/5">
-                            <i data-lucide="mail" class="w-4 h-4 text-brand-gold shrink-0"></i>
-                            <div class="leading-tight">
-                                <span class="text-[11px] sm:text-xs font-bold block text-white">Free Gift Note</span>
-                                <span class="text-[9px] sm:text-[10px] text-amber-200/70">Printed inside</span>
+
+                        <div class="hero-elem-4 pt-6 border-t border-white/15 max-w-lg mx-auto lg:mx-0 grid grid-cols-3 gap-2 sm:gap-4 text-left">
+                            <div class="flex items-center gap-2 bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <i data-lucide="check-circle" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                                <div class="leading-tight">
+                                    <span class="text-[11px] sm:text-xs font-bold block text-white">4 Sweets In 1</span>
+                                    <span class="text-[9px] sm:text-[10px] text-amber-200/80">Custom assortments</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <i data-lucide="award" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                                <div class="leading-tight">
+                                    <span class="text-[11px] sm:text-xs font-bold block text-white">Luxury Gold Box</span>
+                                    <span class="text-[9px] sm:text-[10px] text-amber-200/80">Embossed packaging</span>
+                                </div>
+                            </div>
+                            <div class="flex items-center gap-2 bg-black/35 p-2 sm:p-2.5 rounded-xl backdrop-blur-xs border border-white/10">
+                                <i data-lucide="mail" class="w-4 h-4 text-brand-gold shrink-0"></i>
+                                <div class="leading-tight">
+                                    <span class="text-[11px] sm:text-xs font-bold block text-white">Free Gift Note</span>
+                                    <span class="text-[9px] sm:text-[10px] text-amber-200/80">Printed inside</span>
+                                </div>
                             </div>
                         </div>
                     </div>
