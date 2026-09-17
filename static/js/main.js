@@ -384,4 +384,19 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initialize cart count & contents
     updateCartBadge();
     renderCartDrawer();
+
+    // Sticky Header Scroll Transition
+    const mainHeader = document.getElementById('main-header');
+    if (mainHeader) {
+        const updateHeaderOnScroll = () => {
+            if (window.scrollY > 20) {
+                mainHeader.classList.add('header-scrolled');
+            } else {
+                mainHeader.classList.remove('header-scrolled');
+            }
+        };
+        window.addEventListener('scroll', updateHeaderOnScroll, { passive: true });
+        updateHeaderOnScroll();
+    }
 });
+
