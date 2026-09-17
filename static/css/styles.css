@@ -75,3 +75,131 @@
 .animate-soft-pulse {
     animation: soft-pulse 2s ease-in-out infinite;
 }
+
+/* ==========================================================================
+   Cinematic Hero Slider & Motion Styles
+   ========================================================================== */
+
+.hero-slide {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    transition: opacity 1000ms cubic-bezier(0.4, 0, 0.2, 1), visibility 1000ms;
+    z-index: 1;
+}
+
+.hero-slide.active {
+    opacity: 1;
+    visibility: visible;
+    pointer-events: auto;
+    z-index: 10;
+}
+
+/* Ken Burns Subtle Zoom on Slide Media */
+.hero-kenburns {
+    transform: scale(1);
+    transition: transform 8000ms cubic-bezier(0.25, 1, 0.5, 1);
+    will-change: transform;
+}
+
+.hero-slide.active .hero-kenburns {
+    transform: scale(1.06);
+}
+
+/* Staggered Text & Elements Entrance */
+@keyframes heroFadeUp {
+    0% {
+        opacity: 0;
+        transform: translateY(22px);
+    }
+    100% {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.hero-slide.active .hero-elem-1 {
+    animation: heroFadeUp 700ms 150ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-slide.active .hero-elem-2 {
+    animation: heroFadeUp 700ms 300ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-slide.active .hero-elem-3 {
+    animation: heroFadeUp 700ms 450ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+.hero-slide.active .hero-elem-4 {
+    animation: heroFadeUp 700ms 600ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+/* Progress Fill Indicator */
+.slide-indicator-track {
+    height: 3px;
+    background: rgba(212, 175, 55, 0.25);
+    border-radius: 9999px;
+    overflow: hidden;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.slide-indicator-track:hover {
+    background: rgba(212, 175, 55, 0.4);
+}
+
+.slide-indicator-fill {
+    height: 100%;
+    width: 0%;
+    background: #D4AF37;
+    border-radius: 9999px;
+}
+
+.slide-indicator-track.active .slide-indicator-fill {
+    width: 100%;
+    transition: width 6000ms linear;
+}
+
+/* Mobile Horizontal Scroll Utilities */
+.scrollbar-none {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+}
+.scrollbar-none::-webkit-scrollbar {
+    display: none;
+}
+
+.snap-x-mandatory {
+    scroll-snap-type: x mandatory;
+    -webkit-overflow-scrolling: touch;
+}
+
+.snap-start-card {
+    scroll-snap-align: start;
+}
+
+/* Accessibility: Respect Reduced Motion Preferences */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+
+    .hero-kenburns {
+        transform: none !important;
+        transition: none !important;
+    }
+
+    .text-shimmer {
+        animation: none !important;
+    }
+}
