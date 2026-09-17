@@ -142,6 +142,11 @@
                             <span class="inline-block mt-0.5 px-2 py-0.5 rounded text-[9px] font-bold uppercase {% if ord.payment_status == 'Paid' %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">
                                 {{ ord.payment_method.upper() }} • {{ ord.payment_status }}
                             </span>
+                            {% if ord.razorpay_payment_id %}
+                            <div class="mt-1 flex items-center gap-1 text-[10px] text-gray-500 font-mono" title="Razorpay Payment ID: {{ ord.razorpay_payment_id }}">
+                                <span class="bg-blue-50 text-blue-700 px-1.5 py-0.5 rounded border border-blue-200">RZP: {{ ord.razorpay_payment_id[:16] }}{% if ord.razorpay_payment_id|length > 16 %}...{% endif %}</span>
+                            </div>
+                            {% endif %}
                         </td>
                         <td class="py-3.5 px-4">
                             <select onchange="updateOrderStatus('{{ ord.id }}', this.value)" class="text-xs font-semibold px-2.5 py-1.5 rounded-lg border border-gray-200 bg-white focus:outline-none focus:border-brand-gold cursor-pointer">

@@ -91,8 +91,35 @@
                 <span class="inline-block mt-1 px-2.5 py-0.5 rounded text-[10px] font-bold uppercase {% if order.payment_status == 'Paid' %}bg-green-100 text-green-800{% else %}bg-amber-100 text-amber-800{% endif %}">
                     Payment: {{ order.payment_method.upper() }} ({{ order.payment_status }})
                 </span>
+                {% if order.razorpay_payment_id %}
+                <div class="mt-1 text-[11px] text-gray-600">
+                    <span class="font-semibold text-gray-500">Razorpay ID:</span>
+                    <code class="font-mono bg-blue-50 text-blue-800 px-1.5 py-0.5 rounded text-[10px] font-bold border border-blue-200">{{ order.razorpay_payment_id }}</code>
+                </div>
+                {% endif %}
+                {% if order.razorpay_order_id %}
+                <div class="text-[10px] text-gray-400 font-mono mt-0.5">
+                    Gateway Ref: {{ order.razorpay_order_id }}
+                </div>
+                {% endif %}
             </div>
         </div>
+
+        {% if order.payment_method in ['manual_link', 'manual'] or 'manual' in (order.payment_method or '').lower() %}
+        <div class="p-4 bg-amber-50 border border-amber-200 rounded-2xl text-xs text-amber-900 space-y-1.5">
+            <div class="font-bold flex items-center gap-1.5">
+                <i data-lucide="external-link" class="w-4 h-4 text-brand-maroon"></i>
+                <span>Direct Payment Link Instructions:</span>
+            </div>
+            <p class="text-gray-700 text-[11px]">
+                If you have not already completed payment, please transfer the exact order amount (<strong>₹{{ order.total_amount }}</strong>) via the verified merchant link below and mention Order ID <strong>#{{ order.id }}</strong> in the note:
+            </p>
+            <a href="https://razorpay.me/@shashanksanjaypawar" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1.5 px-3 py-1.5 bg-brand-maroon text-white font-bold rounded-lg text-xs hover:bg-brand-maroondark transition">
+                <span>Pay ₹{{ order.total_amount }} at razorpay.me/@shashanksanjaypawar</span>
+                <i data-lucide="external-link" class="w-3.5 h-3.5"></i>
+            </a>
+        </div>
+        {% endif %}
 
         <!-- Customer & Delivery Details -->
         <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs text-gray-600 bg-amber-50/40 p-4 rounded-2xl">

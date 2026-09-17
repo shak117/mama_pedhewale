@@ -77,6 +77,10 @@ def init_db():
         total_amount INTEGER NOT NULL,
         status TEXT DEFAULT 'Confirmed',
         notes TEXT,
+        razorpay_order_id TEXT,
+        razorpay_payment_id TEXT,
+        razorpay_signature TEXT,
+        payment_details TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
@@ -154,6 +158,24 @@ def init_db():
         pass
     try:
         cursor.execute("ALTER TABLE orders ADD COLUMN dispatched_at TIMESTAMP")
+    except Exception:
+        pass
+
+    # Ensure Razorpay payment tracking columns exist in orders table
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN razorpay_order_id TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN razorpay_payment_id TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN razorpay_signature TEXT")
+    except Exception:
+        pass
+    try:
+        cursor.execute("ALTER TABLE orders ADD COLUMN payment_details TEXT")
     except Exception:
         pass
 

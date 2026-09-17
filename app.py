@@ -2,12 +2,30 @@ import os
 import json
 import random
 import string
+import hmac
+import hashlib
 from datetime import datetime
 from flask import Flask, render_template, request, jsonify, redirect, url_for, session
 from database import get_db, init_db
 
+# Load .env file if present in project directory
+_env_file = os.path.join(os.path.dirname(os.path.abspath(__file__)), '.env')
+if os.path.exists(_env_file):
+    try:
+        with open(_env_file, 'r', encoding='utf-8') as _f:
+            for _line in _f:
+                _line = _line.strip()
+                if _line and not _line.startswith('#') and '=' in _line:
+                    _k, _v = _line.split('=', 1)
+                    _k = _k.strip()
+                    _v = _v.strip().strip("'\"")
+                    if _k and _k not in os.environ:
+                        os.environ[_k] = _v
+    except Exception:
+        pass
+
 app = Flask(__name__)
-app.config['SECRET_KEY'] = 'mama-pedhewale-secret-key-1948'
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 'mama-pedhewale-secret-key-1948')
 
 # Administrative Portal Authentication Credentials
 ADMIN_USERNAME = os.environ.get('ADMIN_USERNAME', 'admin')
@@ -15,6 +33,22 @@ ADMIN_PASSWORD = os.environ.get('ADMIN_PASSWORD', 'MamaSatara@1948')
 
 SUPER_ADMIN_USERNAME = os.environ.get('SUPER_ADMIN_USERNAME', 'superadmin')
 SUPER_ADMIN_PASSWORD = os.environ.get('SUPER_ADMIN_PASSWORD', 'MamaSuper@1948')
+
+# Razorpay Payment Gateway Configuration
+RAZORPAY_KEY_ID = os.environ.get('RAZORPAY_KEY_ID', '')
+RAZORPAY_KEY_SECRET = os.environ.get('RAZORPAY_KEY_SECRET', '')
+RAZORPAY_WEBHOOK_SECRET = os.environ.get('RAZORPAY_WEBHOOK_SECRET', '')
+
+def get_razorpay_client():
+    """Initializes and returns Razorpay client if credentials are configured."""
+    if not RAZORPAY_KEY_ID or not RAZORPAY_KEY_SECRET:
+        return None
+    try:
+        import razorpay
+        return razorpay.Client(auth=(RAZORPAY_KEY_ID, RAZORPAY_KEY_SECRET))
+    except Exception as e:
+        app.logger.error(f"Error initializing Razorpay client: {e}")
+        return None
 
 def generate_order_id():
     suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
@@ -325,20 +359,80 @@ def api_check_pincode():
             'message': f"Delivered via All-India Express Courier (approx 3-4 days)."
         })
 
+def recalculate_order_items(items, conn):
+    """
+    Recalculates cart items server-side using authoritative database prices.
+    Prevents client-side price tampering. Returns: (validated_items, subtotal)
+    """
+    validated_items = []
+    subtotal = 0
+
+    for item in items:
+        qty = max(1, int(item.get('quantity', 1)))
+        prod_id = item.get('id') or item.get('product_id')
+        weight = item.get('weight', '500g')
+        is_custom = bool(item.get('is_custom_box', False))
+
+        if is_custom and item.get('box_contents'):
+            box_price = 0
+            box_contents = item.get('box_contents', {})
+            for slot_key, sweet_info in box_contents.items():
+                sweet_id = sweet_info.get('id') if isinstance(sweet_info, dict) else sweet_info
+                row = conn.execute("SELECT price_500g, price_1kg FROM products WHERE id = ?", (sweet_id,)).fetchone()
+                if row:
+                    portion = (row['price_500g'] / 4.0) if weight == '500g' else (row['price_1kg'] / 4.0)
+                    box_price += portion
+                else:
+                    box_price += (int(item.get('price', 400)) / 4.0)
+            unit_price = int(round(box_price))
+            prod_name = item.get('name', f"Custom Assorted Mithai Box ({weight})")
+        else:
+            row = conn.execute("SELECT name, price_250g, price_500g, price_1kg, in_stock FROM products WHERE id = ?", (prod_id,)).fetchone()
+            if row:
+                prod_name = row['name']
+                if weight == '250g':
+                    unit_price = int(row['price_250g'])
+                elif weight == '1kg':
+                    unit_price = int(row['price_1kg'])
+                else:
+                    unit_price = int(row['price_500g'])
+            else:
+                unit_price = int(item.get('price', 0))
+                prod_name = item.get('name', 'Mithai Item')
+
+        item_total = unit_price * qty
+        subtotal += item_total
+        validated_items.append({
+            'product_id': prod_id,
+            'name': prod_name,
+            'weight': weight,
+            'quantity': qty,
+            'unit_price': unit_price,
+            'item_total': item_total,
+            'is_custom_box': is_custom,
+            'box_contents': item.get('box_contents') if is_custom else None
+        })
+
+    return validated_items, subtotal
+
 @app.route('/api/orders', methods=['POST'])
 def api_create_order():
-    data = request.get_json()
-    if not data or not data.get('items'):
+    """Handles standard/COD order placements with server-side price validation."""
+    data = request.get_json() or {}
+    items = data.get('items', [])
+    if not items:
         return jsonify({'error': 'Cart is empty or invalid data provided.'}), 400
 
     order_id = generate_order_id()
     customer = data.get('customer', {})
-    items = data.get('items', [])
     delivery = data.get('delivery', {})
     payment = data.get('payment', {})
 
-    # Calculate totals
-    subtotal = sum(int(item.get('price', 0)) * int(item.get('quantity', 1)) for item in items)
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Recalculate totals server-side
+    validated_items, subtotal = recalculate_order_items(items, conn)
     
     # Free delivery on orders above 799, otherwise delivery fee
     delivery_fee = 0 if subtotal >= 799 else int(delivery.get('fee', 60))
@@ -346,10 +440,7 @@ def api_create_order():
     total_amount = max(0, subtotal + delivery_fee - discount)
 
     payment_method = payment.get('method', 'cod')
-    payment_status = 'Paid' if payment_method in ['upi', 'card'] else 'Pending'
-
-    conn = get_db()
-    cursor = conn.cursor()
+    payment_status = 'Pending' if payment_method == 'cod' else ('Paid' if payment_method in ['upi', 'card'] else 'Pending')
 
     try:
         cursor.execute("""
@@ -386,7 +477,7 @@ def api_create_order():
         ))
 
         # Insert order items
-        for item in items:
+        for item in validated_items:
             is_custom = bool(item.get('is_custom_box', False))
             box_contents = json.dumps(item.get('box_contents')) if is_custom else None
             cursor.execute("""
@@ -398,11 +489,11 @@ def api_create_order():
             """, (
                 order_id,
                 item.get('product_id'),
-                item.get('name', 'Mithai Item'),
-                item.get('weight', '500g'),
-                int(item.get('quantity', 1)),
-                int(item.get('price', 0)),
-                int(item.get('price', 0)) * int(item.get('quantity', 1)),
+                item.get('name'),
+                item.get('weight'),
+                item.get('quantity'),
+                item.get('unit_price'),
+                item.get('item_total'),
                 1 if is_custom else 0,
                 box_contents
             ))
@@ -415,9 +506,8 @@ def api_create_order():
 
     conn.close()
 
-    # Generate WhatsApp order text link
-    wa_msg = f"Namaskar Mama Pedhewale!%0AOrder ID: {order_id}%0AName: {customer.get('name')}%0AItems: {len(items)} items%0ATotal: Rs. {total_amount}%0APayment: {payment_method.upper()}%0APincode: {customer.get('pincode')}"
-    wa_url = f"https://wa.me/919822012345?text={wa_msg}"
+    wa_msg = f"Namaskar Mama Pedhewale!%0AOrder ID: {order_id}%0AName: {customer.get('name')}%0AItems: {len(validated_items)} items%0ATotal: Rs. {total_amount}%0APayment: {payment_method.upper()}%0APincode: {customer.get('pincode')}"
+    wa_url = f"https://wa.me/919699106264?text={wa_msg}"
 
     return jsonify({
         'success': True,
@@ -427,6 +517,316 @@ def api_create_order():
         'whatsapp_url': wa_url,
         'redirect_url': url_for('order_success', order_id=order_id)
     })
+
+# ==================== RAZORPAY PAYMENT GATEWAY ENDPOINTS ====================
+
+@app.route('/api/payments/razorpay/create-order', methods=['POST'])
+def api_razorpay_create_order():
+    """
+    Creates an internal pending order and requests a Razorpay Order ID.
+    Recalculates price server-side using authoritative database prices.
+    Converts amount to paise format for Razorpay.
+    """
+    data = request.get_json() or {}
+    items = data.get('items', [])
+    customer = data.get('customer', {})
+    delivery = data.get('delivery', {})
+
+    if not items:
+        return jsonify({'error': 'Cart is empty. Please add items before checking out.'}), 400
+
+    if not customer.get('name') or not customer.get('phone') or not customer.get('address1') or not customer.get('pincode'):
+        return jsonify({'error': 'Please provide all required delivery details (name, phone, address, and pincode).'}), 400
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    # Recalculate totals server-side
+    validated_items, subtotal = recalculate_order_items(items, conn)
+    
+    if subtotal <= 0:
+        conn.close()
+        return jsonify({'error': 'Invalid order items or amounts.'}), 400
+
+    # Free delivery on orders above 799, otherwise delivery fee
+    delivery_fee = 0 if subtotal >= 799 else int(delivery.get('fee', 60))
+    discount = int(data.get('discount', 0))
+    total_amount = max(1, subtotal + delivery_fee - discount)
+    amount_in_paise = int(total_amount * 100)
+
+    order_id = generate_order_id()
+    client = get_razorpay_client()
+
+    razorpay_order_id = None
+    if client:
+        try:
+            rzp_payload = {
+                'amount': amount_in_paise,
+                'currency': 'INR',
+                'receipt': order_id,
+                'notes': {
+                    'order_id': order_id,
+                    'customer_name': customer.get('name', ''),
+                    'customer_phone': customer.get('phone', ''),
+                    'customer_pincode': customer.get('pincode', '')
+                }
+            }
+            rzp_order = client.order.create(rzp_payload)
+            razorpay_order_id = rzp_order['id']
+        except Exception as e:
+            conn.close()
+            app.logger.error(f"Razorpay order creation failed: {e}")
+            return jsonify({'error': f"Payment gateway error: {str(e)}"}), 502
+    else:
+        # If credentials are not configured, return clear instructions
+        conn.close()
+        return jsonify({
+            'error': 'Razorpay payment gateway credentials not configured on the server. Please configure RAZORPAY_KEY_ID and RAZORPAY_KEY_SECRET in environment variables or .env file.'
+        }), 500
+
+    try:
+        # Create order in database with status 'Pending' and payment_status 'Payment Initiated'
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, address_line2, city, state, pincode,
+                delivery_type, delivery_date, delivery_slot, gift_message,
+                payment_method, payment_status, subtotal, delivery_fee, discount,
+                total_amount, status, notes, razorpay_order_id
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'razorpay', 'Payment Initiated', ?, ?, ?, ?, 'Pending', ?, ?)
+        """, (
+            order_id,
+            customer.get('name', 'Customer'),
+            customer.get('phone', ''),
+            customer.get('email', ''),
+            customer.get('address1', ''),
+            customer.get('address2', ''),
+            customer.get('city', ''),
+            customer.get('state', ''),
+            customer.get('pincode', ''),
+            delivery.get('type', 'standard'),
+            delivery.get('date', datetime.now().strftime('%Y-%m-%d')),
+            delivery.get('slot', 'Standard Express'),
+            delivery.get('gift_message', ''),
+            subtotal,
+            delivery_fee,
+            discount,
+            total_amount,
+            data.get('notes', ''),
+            razorpay_order_id
+        ))
+
+        # Insert items
+        for item in validated_items:
+            cursor.execute("""
+                INSERT INTO order_items (
+                    order_id, product_id, product_name, weight_selected,
+                    quantity, unit_price, item_total, is_custom_box, box_contents
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """, (
+                order_id,
+                item['product_id'],
+                item['name'],
+                item['weight'],
+                item['quantity'],
+                item['unit_price'],
+                item['item_total'],
+                1 if item['is_custom_box'] else 0,
+                json.dumps(item['box_contents']) if item['is_custom_box'] and item['box_contents'] else None
+            ))
+
+        conn.commit()
+    except Exception as e:
+        conn.rollback()
+        conn.close()
+        app.logger.error(f"Database error while saving pending order: {e}")
+        return jsonify({'error': f"Failed to record pending order: {str(e)}"}), 500
+
+    conn.close()
+
+    return jsonify({
+        'success': True,
+        'order_id': order_id,
+        'razorpay_order_id': razorpay_order_id,
+        'amount': amount_in_paise,
+        'amount_in_rupees': total_amount,
+        'currency': 'INR',
+        'key_id': RAZORPAY_KEY_ID,
+        'business_name': 'Mama Pedhewale (मामा कंदी पेढेवाले)',
+        'description': f"Fresh Satara Mithai Order #{order_id}",
+        'prefill': {
+            'name': customer.get('name', ''),
+            'contact': customer.get('phone', ''),
+            'email': customer.get('email', '')
+        }
+    })
+
+@app.route('/api/payments/razorpay/verify', methods=['POST'])
+def api_razorpay_verify():
+    """
+    Cryptographically verifies Razorpay payment signature using RAZORPAY_KEY_SECRET.
+    Only after successful verification is the order marked as 'Paid' and 'Confirmed'.
+    """
+    data = request.get_json() or {}
+    order_id = data.get('order_id')
+    razorpay_payment_id = data.get('razorpay_payment_id')
+    razorpay_order_id = data.get('razorpay_order_id')
+    razorpay_signature = data.get('razorpay_signature')
+
+    if not all([order_id, razorpay_payment_id, razorpay_order_id, razorpay_signature]):
+        return jsonify({'success': False, 'error': 'Missing required payment verification parameters.'}), 400
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Order not found.'}), 404
+
+    # Idempotency check: if order is already marked Paid, return success immediately
+    if order['payment_status'] == 'Paid':
+        conn.close()
+        return jsonify({
+            'success': True,
+            'message': 'Order already verified as Paid.',
+            'order_id': order_id,
+            'redirect_url': url_for('order_success', order_id=order_id)
+        })
+
+    # Verify Razorpay order ID matches the order record
+    if order['razorpay_order_id'] and order['razorpay_order_id'] != razorpay_order_id:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Razorpay order ID does not match server order record.'}), 400
+
+    # Cryptographic verification using Key Secret
+    verified = False
+    client = get_razorpay_client()
+    if client and RAZORPAY_KEY_SECRET:
+        try:
+            client.utility.verify_payment_signature({
+                'razorpay_order_id': razorpay_order_id,
+                'razorpay_payment_id': razorpay_payment_id,
+                'razorpay_signature': razorpay_signature
+            })
+            verified = True
+        except Exception as e:
+            app.logger.warning(f"Razorpay SDK signature check failed: {e}")
+            verified = False
+    elif RAZORPAY_KEY_SECRET:
+        msg = f"{razorpay_order_id}|{razorpay_payment_id}".encode('utf-8')
+        expected_sig = hmac.new(RAZORPAY_KEY_SECRET.encode('utf-8'), msg, hashlib.sha256).hexdigest()
+        verified = hmac.compare_digest(expected_sig, razorpay_signature)
+
+    if not verified:
+        cursor = conn.cursor()
+        cursor.execute("UPDATE orders SET payment_status = 'Failed' WHERE id = ?", (order_id,))
+        conn.commit()
+        conn.close()
+        app.logger.error(f"Razorpay signature mismatch for order {order_id}. Payment ID: {razorpay_payment_id}")
+        return jsonify({'success': False, 'error': 'Payment signature verification failed. Untrusted payment attempt.'}), 400
+
+    # Payment verified! Update order status to Confirmed and Paid
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE orders 
+        SET status = 'Confirmed',
+            payment_status = 'Paid',
+            razorpay_payment_id = ?,
+            razorpay_signature = ?
+        WHERE id = ?
+    """, (razorpay_payment_id, razorpay_signature, order_id))
+    conn.commit()
+    conn.close()
+
+    return jsonify({
+        'success': True,
+        'order_id': order_id,
+        'payment_id': razorpay_payment_id,
+        'message': 'Payment successfully verified and confirmed! 🎉',
+        'redirect_url': url_for('order_success', order_id=order_id)
+    })
+
+@app.route('/api/payments/razorpay/webhook', methods=['POST'])
+def api_razorpay_webhook():
+    """
+    Receives and processes asynchronous payment notifications from Razorpay.
+    Verifies webhook signature using RAZORPAY_WEBHOOK_SECRET (or RAZORPAY_KEY_SECRET).
+    Idempotent processing prevents duplicate fulfillment actions.
+    """
+    webhook_body = request.get_data(as_text=True)
+    webhook_signature = request.headers.get('X-Razorpay-Signature', '')
+    secret = RAZORPAY_WEBHOOK_SECRET or RAZORPAY_KEY_SECRET
+
+    if not secret:
+        app.logger.warning("Webhook received but webhook secret is not configured on server.")
+        return jsonify({'error': 'Webhook secret not configured on server.'}), 500
+
+    # Verify signature
+    verified = False
+    client = get_razorpay_client()
+    if client and hasattr(client.utility, 'verify_webhook_signature'):
+        try:
+            client.utility.verify_webhook_signature(webhook_body, webhook_signature, secret)
+            verified = True
+        except Exception:
+            verified = False
+    else:
+        expected = hmac.new(secret.encode('utf-8'), webhook_body.encode('utf-8'), hashlib.sha256).hexdigest()
+        verified = hmac.compare_digest(expected, webhook_signature)
+
+    if not verified:
+        app.logger.error("Invalid Razorpay webhook signature received.")
+        return jsonify({'error': 'Invalid webhook signature'}), 400
+
+    try:
+        event_data = json.loads(webhook_body)
+    except Exception:
+        return jsonify({'error': 'Invalid JSON payload'}), 400
+
+    event_type = event_data.get('event')
+    payload = event_data.get('payload', {})
+    
+    conn = get_db()
+    cursor = conn.cursor()
+
+    if event_type in ['order.paid', 'payment.captured']:
+        payment_entity = payload.get('payment', {}).get('entity', {})
+        order_entity = payload.get('order', {}).get('entity', {})
+        
+        rzp_order_id = payment_entity.get('order_id') or order_entity.get('id')
+        rzp_payment_id = payment_entity.get('id')
+        internal_order_id = payment_entity.get('notes', {}).get('order_id') or order_entity.get('receipt')
+
+        order = None
+        if rzp_order_id:
+            order = conn.execute("SELECT * FROM orders WHERE razorpay_order_id = ?", (rzp_order_id,)).fetchone()
+        if not order and internal_order_id:
+            order = conn.execute("SELECT * FROM orders WHERE id = ?", (internal_order_id,)).fetchone()
+
+        if order and order['payment_status'] != 'Paid':
+            cursor.execute("""
+                UPDATE orders 
+                SET status = 'Confirmed',
+                    payment_status = 'Paid',
+                    razorpay_payment_id = COALESCE(razorpay_payment_id, ?),
+                    payment_details = ?
+                WHERE id = ?
+            """, (rzp_payment_id, json.dumps(payment_entity), order['id']))
+            conn.commit()
+            app.logger.info(f"Order {order['id']} marked Paid via webhook event {event_type}")
+
+    elif event_type == 'payment.failed':
+        payment_entity = payload.get('payment', {}).get('entity', {})
+        rzp_order_id = payment_entity.get('order_id')
+        if rzp_order_id:
+            order = conn.execute("SELECT * FROM orders WHERE razorpay_order_id = ?", (rzp_order_id,)).fetchone()
+            if order and order['payment_status'] != 'Paid':
+                cursor.execute("UPDATE orders SET payment_status = 'Failed' WHERE id = ?", (order['id'],))
+                conn.commit()
+
+    conn.close()
+    return jsonify({'status': 'ok', 'event': event_type}), 200
 
 @app.route('/api/corporate-inquiry', methods=['POST'])
 def api_corporate_inquiry():

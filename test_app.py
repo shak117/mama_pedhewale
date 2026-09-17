@@ -1,5 +1,8 @@
 import unittest
 import json
+import hmac
+import hashlib
+from unittest.mock import patch, MagicMock
 from app import app
 from database import get_db, init_db
 from seed_data import seed_database
@@ -325,6 +328,228 @@ class MamaPedhewaleTests(unittest.TestCase):
             data=json.dumps({'price_250g': 180, 'price_500g': 340, 'price_1kg': 650}),
             content_type='application/json'
         )
+
+    def test_13_checkout_renders_razorpay_checkout_js_and_options(self):
+        resp = self.client.get('/checkout')
+        self.assertEqual(resp.status_code, 200)
+        self.assertIn(b'checkout.razorpay.com/v1/checkout.js', resp.data)
+        self.assertIn(b'Online Payment via Razorpay', resp.data)
+        self.assertIn(b'razorpay.me/@shashanksanjaypawar', resp.data)
+
+    def test_14_server_side_price_tampering_defense(self):
+        # Client tries to forge price to ₹1 instead of real price
+        conn = get_db()
+        prod = conn.execute("SELECT price_500g FROM products WHERE id = 'satara-kandi-pedha'").fetchone()
+        conn.close()
+        real_price = prod['price_500g']
+
+        tampered_order = {
+            'customer': {
+                'name': 'Tamper Test User',
+                'phone': '9999999999',
+                'email': 'tamper@example.com',
+                'address1': 'Fake Lane 1',
+                'city': 'Satara',
+                'state': 'Maharashtra',
+                'pincode': '415001'
+            },
+            'delivery': {
+                'type': 'standard',
+                'fee': 60,
+                'date': '2026-09-20',
+                'slot': 'Standard'
+            },
+            'payment': {
+                'method': 'cod'
+            },
+            'items': [
+                {
+                    'product_id': 'satara-kandi-pedha',
+                    'name': 'Satara Special Kandi Pedha',
+                    'price': 1,  # FAKE/FORGED PRICE PASSED BY TAMPERING CLIENT
+                    'weight': '500g',
+                    'quantity': 2,
+                    'is_custom_box': False
+                }
+            ]
+        }
+
+        resp = self.client.post('/api/orders',
+            data=json.dumps(tampered_order),
+            content_type='application/json'
+        )
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+        
+        # Expected total must be based on server-side real_price * 2
+        expected_subtotal = real_price * 2
+        expected_delivery = 60 if expected_subtotal < 799 else 0
+        expected_total = expected_subtotal + expected_delivery
+        self.assertEqual(data['total_amount'], expected_total)
+        self.assertNotEqual(data['total_amount'], 2 + 60)
+
+    def test_15_razorpay_order_creation_and_verification(self):
+        order_data = {
+            'customer': {
+                'name': 'Rohan Patil',
+                'phone': '9876543210',
+                'email': 'rohan@example.com',
+                'address1': 'Station Road',
+                'city': 'Satara',
+                'state': 'Maharashtra',
+                'pincode': '415001'
+            },
+            'delivery': {'fee': 0},
+            'payment': {'method': 'razorpay'},
+            'items': [{'product_id': 'satara-kandi-pedha', 'weight': '500g', 'quantity': 1}]
+        }
+
+        # 1. Test missing credentials guard
+        with patch('app.RAZORPAY_KEY_ID', ''), patch('app.RAZORPAY_KEY_SECRET', ''):
+            resp = self.client.post('/api/payments/razorpay/create-order',
+                data=json.dumps(order_data),
+                content_type='application/json'
+            )
+            self.assertEqual(resp.status_code, 500)
+            self.assertIn('credentials not configured', resp.get_json()['error'])
+
+        # 2. Test successful Razorpay order creation with mock gateway client
+        test_secret = 'test_secret_key_12345'
+        test_key_id = 'rzp_test_samplekey123'
+        
+        mock_client = MagicMock()
+        mock_client.order.create.return_value = {'id': 'order_fake_rzp_12345'}
+        # Utility signature check can raise error or pass
+        def mock_verify_payment(params):
+            expected = hmac.new(
+                test_secret.encode('utf-8'),
+                f"{params['razorpay_order_id']}|{params['razorpay_payment_id']}".encode('utf-8'),
+                hashlib.sha256
+            ).hexdigest()
+            if not hmac.compare_digest(expected, params['razorpay_signature']):
+                raise Exception("Signature mismatch")
+        mock_client.utility.verify_payment_signature.side_effect = mock_verify_payment
+
+        with patch('app.RAZORPAY_KEY_ID', test_key_id), \
+             patch('app.RAZORPAY_KEY_SECRET', test_secret), \
+             patch('app.get_razorpay_client', return_value=mock_client):
+
+            resp = self.client.post('/api/payments/razorpay/create-order',
+                data=json.dumps(order_data),
+                content_type='application/json'
+            )
+            self.assertEqual(resp.status_code, 200)
+            res_data = resp.get_json()
+            self.assertTrue(res_data['success'])
+            self.assertEqual(res_data['razorpay_order_id'], 'order_fake_rzp_12345')
+            self.assertEqual(res_data['currency'], 'INR')
+            self.assertEqual(res_data['key_id'], test_key_id)
+            self.assertGreater(res_data['amount'], 0) # In subunit paise
+            
+            internal_order_id = res_data['order_id']
+
+            # 3. Test Signature Verification - Tampered/Invalid Signature
+            bad_verify_resp = self.client.post('/api/payments/razorpay/verify',
+                data=json.dumps({
+                    'order_id': internal_order_id,
+                    'razorpay_payment_id': 'pay_fake_999',
+                    'razorpay_order_id': 'order_fake_rzp_12345',
+                    'razorpay_signature': 'invalid_signature_hash'
+                }),
+                content_type='application/json'
+            )
+            self.assertEqual(bad_verify_resp.status_code, 400)
+            self.assertFalse(bad_verify_resp.get_json()['success'])
+
+            # Verify order status in DB was set to Failed
+            conn = get_db()
+            ord_row = conn.execute("SELECT payment_status FROM orders WHERE id = ?", (internal_order_id,)).fetchone()
+            self.assertEqual(ord_row['payment_status'], 'Failed')
+            conn.close()
+
+            # 4. Test Signature Verification - Valid HMAC-SHA256
+            valid_payload = "order_fake_rzp_12345|pay_fake_999"
+            valid_sig = hmac.new(test_secret.encode('utf-8'), valid_payload.encode('utf-8'), hashlib.sha256).hexdigest()
+
+            good_verify_resp = self.client.post('/api/payments/razorpay/verify',
+                data=json.dumps({
+                    'order_id': internal_order_id,
+                    'razorpay_payment_id': 'pay_fake_999',
+                    'razorpay_order_id': 'order_fake_rzp_12345',
+                    'razorpay_signature': valid_sig
+                }),
+                content_type='application/json'
+            )
+            self.assertEqual(good_verify_resp.status_code, 200)
+            self.assertTrue(good_verify_resp.get_json()['success'])
+
+            # Verify order in DB marked as Confirmed and Paid
+            conn = get_db()
+            ord_row = conn.execute("SELECT status, payment_status, razorpay_payment_id FROM orders WHERE id = ?", (internal_order_id,)).fetchone()
+            self.assertEqual(ord_row['status'], 'Confirmed')
+            self.assertEqual(ord_row['payment_status'], 'Paid')
+            self.assertEqual(ord_row['razorpay_payment_id'], 'pay_fake_999')
+            conn.close()
+
+    def test_16_razorpay_webhook_processing(self):
+        test_secret = 'test_webhook_secret_777'
+        
+        # Create a pending order in DB
+        conn = get_db()
+        cursor = conn.cursor()
+        order_id = 'ORD-WH-TEST-001'
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, city, state, pincode, delivery_type,
+                delivery_date, delivery_slot, payment_method, payment_status,
+                subtotal, delivery_fee, discount, total_amount, status, razorpay_order_id
+            )
+            VALUES (?, 'WH Customer', '9876543210', 'wh@example.com',
+                'Line 1', 'Satara', 'Maharashtra', '415001', 'standard',
+                '2026-09-21', 'Standard', 'razorpay', 'Payment Initiated',
+                400, 0, 0, 400, 'Pending', 'order_wh_rzp_888')
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        webhook_payload = {
+            'event': 'order.paid',
+            'payload': {
+                'order': {'entity': {'id': 'order_wh_rzp_888', 'receipt': order_id}},
+                'payment': {'entity': {'id': 'pay_wh_rzp_999', 'order_id': 'order_wh_rzp_888'}}
+            }
+        }
+        webhook_body = json.dumps(webhook_payload)
+        valid_wh_sig = hmac.new(test_secret.encode('utf-8'), webhook_body.encode('utf-8'), hashlib.sha256).hexdigest()
+
+        with patch('app.RAZORPAY_WEBHOOK_SECRET', test_secret), \
+             patch('app.get_razorpay_client', return_value=None):
+
+            # 1. Invalid signature rejection
+            bad_resp = self.client.post('/api/payments/razorpay/webhook',
+                data=webhook_body,
+                headers={'X-Razorpay-Signature': 'invalid_webhook_sig', 'Content-Type': 'application/json'}
+            )
+            self.assertEqual(bad_resp.status_code, 400)
+
+            # 2. Valid signature acceptance and idempotent status update
+            good_resp = self.client.post('/api/payments/razorpay/webhook',
+                data=webhook_body,
+                headers={'X-Razorpay-Signature': valid_wh_sig, 'Content-Type': 'application/json'}
+            )
+            self.assertEqual(good_resp.status_code, 200)
+            self.assertEqual(good_resp.get_json()['status'], 'ok')
+
+        # Check order updated to Confirmed & Paid
+        conn = get_db()
+        ord_row = conn.execute("SELECT status, payment_status, razorpay_payment_id FROM orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual(ord_row['status'], 'Confirmed')
+        self.assertEqual(ord_row['payment_status'], 'Paid')
+        self.assertEqual(ord_row['razorpay_payment_id'], 'pay_wh_rzp_999')
+        conn.close()
 
 if __name__ == '__main__':
     unittest.main()
