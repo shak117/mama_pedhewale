@@ -189,6 +189,46 @@ def order_success(order_id):
     conn = get_db()
     order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
     if not order:
+        client = get_razorpay_client()
+        if client:
+            try:
+                rzp_orders = client.order.all({'count': 10})
+                matched = None
+                for o in rzp_orders.get('items', []):
+                    if o.get('receipt') == order_id:
+                        matched = o
+                        break
+                if matched:
+                    notes = matched.get('notes', {})
+                    amt = (matched.get('amount', 0)) / 100.0
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        INSERT OR REPLACE INTO orders (
+                            id, customer_name, customer_phone, customer_email,
+                            address_line1, city, state, pincode, delivery_type,
+                            delivery_date, delivery_slot, payment_method, payment_status,
+                            subtotal, delivery_fee, discount, total_amount, status,
+                            razorpay_order_id
+                        )
+                        VALUES (?, ?, ?, ?, ?, ?, 'Maharashtra', ?, 'standard',
+                            ?, 'Standard', 'razorpay', 'Paid', ?, 0, 0, ?, 'Confirmed', ?)
+                    """, (
+                        order_id,
+                        notes.get('customer_name', 'Valued Customer'),
+                        notes.get('customer_phone', ''),
+                        notes.get('customer_email', ''),
+                        notes.get('customer_address', ''),
+                        notes.get('customer_city', 'Satara'),
+                        notes.get('customer_pincode', ''),
+                        datetime.now().strftime('%Y-%m-%d'),
+                        amt, amt, matched.get('id')
+                    ))
+                    conn.commit()
+                    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+            except Exception as e:
+                app.logger.warning(f"Could not fetch order from Razorpay for success page: {e}")
+
+    if not order:
         conn.close()
         return redirect(url_for('index'))
     items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
@@ -568,6 +608,9 @@ def api_razorpay_create_order():
                     'order_id': order_id,
                     'customer_name': customer.get('name', ''),
                     'customer_phone': customer.get('phone', ''),
+                    'customer_email': customer.get('email', ''),
+                    'customer_address': customer.get('address1', ''),
+                    'customer_city': customer.get('city', ''),
                     'customer_pincode': customer.get('pincode', '')
                 }
             }
@@ -678,28 +721,7 @@ def api_razorpay_verify():
     if not all([order_id, razorpay_payment_id, razorpay_order_id, razorpay_signature]):
         return jsonify({'success': False, 'error': 'Missing required payment verification parameters.'}), 400
 
-    conn = get_db()
-    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
-    if not order:
-        conn.close()
-        return jsonify({'success': False, 'error': 'Order not found.'}), 404
-
-    # Idempotency check: if order is already marked Paid, return success immediately
-    if order['payment_status'] == 'Paid':
-        conn.close()
-        return jsonify({
-            'success': True,
-            'message': 'Order already verified as Paid.',
-            'order_id': order_id,
-            'redirect_url': url_for('order_success', order_id=order_id)
-        })
-
-    # Verify Razorpay order ID matches the order record
-    if order['razorpay_order_id'] and order['razorpay_order_id'] != razorpay_order_id:
-        conn.close()
-        return jsonify({'success': False, 'error': 'Razorpay order ID does not match server order record.'}), 400
-
-    # Cryptographic verification using Key Secret
+    # 1. Cryptographic verification using Razorpay Key Secret
     verified = False
     client = get_razorpay_client()
     if client and RAZORPAY_KEY_SECRET:
@@ -718,25 +740,88 @@ def api_razorpay_verify():
         expected_sig = hmac.new(RAZORPAY_KEY_SECRET.encode('utf-8'), msg, hashlib.sha256).hexdigest()
         verified = hmac.compare_digest(expected_sig, razorpay_signature)
 
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+
     if not verified:
-        cursor = conn.cursor()
-        cursor.execute("UPDATE orders SET payment_status = 'Failed' WHERE id = ?", (order_id,))
-        conn.commit()
+        if order:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE orders SET payment_status = 'Failed' WHERE id = ?", (order_id,))
+            conn.commit()
         conn.close()
         app.logger.error(f"Razorpay signature mismatch for order {order_id}. Payment ID: {razorpay_payment_id}")
         return jsonify({'success': False, 'error': 'Payment signature verification failed. Untrusted payment attempt.'}), 400
 
-    # Payment verified! Update order status to Confirmed and Paid
+    # 2. Idempotency check: if order is already marked Paid, return success immediately
+    if order and order['payment_status'] == 'Paid':
+        conn.close()
+        return jsonify({
+            'success': True,
+            'message': 'Order already verified as Paid.',
+            'order_id': order_id,
+            'redirect_url': url_for('order_success', order_id=order_id)
+        })
+
+    # 3. Verify Razorpay order ID matches if order record was found
+    if order and order['razorpay_order_id'] and order['razorpay_order_id'] != razorpay_order_id:
+        conn.close()
+        return jsonify({'success': False, 'error': 'Razorpay order ID does not match server order record.'}), 400
+
+    # 4. Update or reconstruct order in local database
     cursor = conn.cursor()
-    cursor.execute("""
-        UPDATE orders 
-        SET status = 'Confirmed',
-            payment_status = 'Paid',
-            razorpay_payment_id = ?,
-            razorpay_signature = ?
-        WHERE id = ?
-    """, (razorpay_payment_id, razorpay_signature, order_id))
-    conn.commit()
+    if order:
+        cursor.execute("""
+            UPDATE orders 
+            SET status = 'Confirmed',
+                payment_status = 'Paid',
+                razorpay_payment_id = ?,
+                razorpay_signature = ?
+            WHERE id = ?
+        """, (razorpay_payment_id, razorpay_signature, order_id))
+        conn.commit()
+    else:
+        # In multi-container serverless environments (e.g. Vercel), reconstruct order from Razorpay
+        cust_name = 'Customer'
+        cust_phone = ''
+        cust_email = ''
+        cust_addr = ''
+        cust_city = 'Satara'
+        cust_pin = ''
+        total_amt = 0
+        if client:
+            try:
+                rzp_ord = client.order.fetch(razorpay_order_id)
+                notes = rzp_ord.get('notes', {})
+                cust_name = notes.get('customer_name', 'Customer')
+                cust_phone = notes.get('customer_phone', '')
+                cust_email = notes.get('customer_email', '')
+                cust_addr = notes.get('customer_address', '')
+                cust_city = notes.get('customer_city', 'Satara')
+                cust_pin = notes.get('customer_pincode', '')
+                total_amt = (rzp_ord.get('amount', 0)) / 100.0
+            except Exception as e:
+                app.logger.warning(f"Could not fetch order from Razorpay for reconstruction: {e}")
+
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, city, state, pincode, delivery_type,
+                delivery_date, delivery_slot, payment_method, payment_status,
+                subtotal, delivery_fee, discount, total_amount, status,
+                razorpay_order_id, razorpay_payment_id, razorpay_signature
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'Maharashtra', ?, 'standard',
+                ?, 'Standard', 'razorpay', 'Paid', ?, 0, 0, ?, 'Confirmed',
+                ?, ?, ?)
+        """, (
+            order_id, cust_name, cust_phone, cust_email,
+            cust_addr, cust_city, cust_pin,
+            datetime.now().strftime('%Y-%m-%d'),
+            total_amt, total_amt,
+            razorpay_order_id, razorpay_payment_id, razorpay_signature
+        ))
+        conn.commit()
+
     conn.close()
 
     return jsonify({

@@ -1,12 +1,47 @@
 import sqlite3
 import os
+import shutil
+import tempfile
 import json
 from datetime import datetime
 
-DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mama_pedhewale.db")
+ORIG_DB_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mama_pedhewale.db")
+
+def resolve_db_path():
+    """
+    Returns the appropriate path for the SQLite database.
+    In serverless environments (e.g. Vercel, AWS Lambda), the deployment directory
+    is mounted as a read-only filesystem. We copy the database to /tmp (or system temp dir)
+    if running in Vercel or if the current folder is not writable.
+    """
+    is_serverless = bool(
+        os.environ.get('VERCEL') or 
+        os.environ.get('VERCEL_ENV') or 
+        os.environ.get('AWS_LAMBDA_FUNCTION_NAME')
+    )
+    is_readonly = not os.access(os.path.dirname(ORIG_DB_PATH), os.W_OK)
+
+    if is_serverless or is_readonly:
+        tmp_dir = "/tmp" if os.path.exists("/tmp") else tempfile.gettempdir()
+        tmp_db = os.path.join(tmp_dir, "mama_pedhewale.db")
+        if not os.path.exists(tmp_db) and os.path.exists(ORIG_DB_PATH):
+            try:
+                shutil.copyfile(ORIG_DB_PATH, tmp_db)
+                try:
+                    os.chmod(tmp_db, 0o666)
+                except Exception:
+                    pass
+            except Exception as e:
+                print(f"Warning: Could not copy SQLite database to temp directory: {e}")
+        return tmp_db if os.path.exists(tmp_db) else ORIG_DB_PATH
+
+    return ORIG_DB_PATH
+
+DB_PATH = resolve_db_path()
 
 def get_db():
-    conn = sqlite3.connect(DB_PATH)
+    target_path = resolve_db_path()
+    conn = sqlite3.connect(target_path, timeout=30.0)
     conn.row_factory = sqlite3.Row
     return conn
 
