@@ -214,6 +214,26 @@ def init_db():
     except Exception:
         pass
 
+    # Ensure Shiprocket shipping & logistics columns exist in orders table
+    shiprocket_columns = [
+        ("shiprocket_order_id", "TEXT"),
+        ("shiprocket_shipment_id", "TEXT"),
+        ("awb_code", "TEXT"),
+        ("courier_name", "TEXT DEFAULT 'Mama Fresh Express'"),
+        ("shipment_status", "TEXT DEFAULT 'Pending'"),
+        ("tracking_url", "TEXT"),
+        ("label_url", "TEXT"),
+        ("invoice_url", "TEXT"),
+        ("pickup_scheduled_at", "TIMESTAMP"),
+        ("shiprocket_created_at", "TIMESTAMP"),
+        ("shiprocket_updated_at", "TIMESTAMP")
+    ]
+    for col_name, col_type in shiprocket_columns:
+        try:
+            cursor.execute(f"ALTER TABLE orders ADD COLUMN {col_name} {col_type}")
+        except Exception:
+            pass
+
     conn.commit()
     conn.close()
 

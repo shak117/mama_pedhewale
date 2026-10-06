@@ -551,5 +551,363 @@ class MamaPedhewaleTests(unittest.TestCase):
         self.assertEqual(ord_row['razorpay_payment_id'], 'pay_wh_rzp_999')
         conn.close()
 
+    # ==================== SHIPROCKET TESTS ====================
+
+    def test_17_shiprocket_service_token_and_weight(self):
+        import shiprocket_service
+
+        # 1. Test weight calculation
+        items = [
+            {'product_name': 'Kandi Pedha', 'weight_selected': '250g', 'quantity': 1},
+            {'product_name': 'Kaju Katli', 'weight_selected': '500g', 'quantity': 2},
+            {'product_name': 'Besan Laddu', 'weight_selected': '1kg', 'quantity': 1}
+        ]
+        # 0.25*1 + 0.5*2 + 1.0*1 = 2.25 kg
+        self.assertEqual(shiprocket_service.calculate_order_weight(items), 2.25)
+
+        # Minimum weight check (0.25kg should default to 0.5kg min)
+        min_items = [{'product_name': 'Kandi Pedha', 'weight_selected': '250g', 'quantity': 1}]
+        self.assertEqual(shiprocket_service.calculate_order_weight(min_items), 0.5)
+
+        # 2. Test token caching & auth
+        shiprocket_service._token_cache['token'] = None
+        shiprocket_service._token_cache['expires_at'] = 0
+
+        mock_login_resp = MagicMock()
+        mock_login_resp.status_code = 200
+        mock_login_resp.json.return_value = {
+            'token': 'mock_shiprocket_jwt_token_xyz',
+            'expires_in': 864000
+        }
+
+        with patch.dict('os.environ', {'SHIPROCKET_EMAIL': 'admin@mamapedhewale.com', 'SHIPROCKET_PASSWORD': 'secret_password'}), \
+             patch('requests.post', return_value=mock_login_resp) as mock_post:
+
+            token1 = shiprocket_service.get_shiprocket_token()
+            self.assertEqual(token1, 'mock_shiprocket_jwt_token_xyz')
+            self.assertEqual(mock_post.call_count, 1)
+
+            # Second call should use in-memory cache without extra HTTP call
+            token2 = shiprocket_service.get_shiprocket_token()
+            self.assertEqual(token2, 'mock_shiprocket_jwt_token_xyz')
+            self.assertEqual(mock_post.call_count, 1)
+
+    def test_18_shiprocket_order_creation_and_idempotency(self):
+        import shiprocket_service
+
+        order_dict = {
+            'id': 'MP-SR-TEST-001',
+            'customer_name': 'Anand Kulkarni',
+            'customer_phone': '9822112233',
+            'customer_email': 'anand@example.com',
+            'address_line1': 'Plot 45, Shukrawar Peth',
+            'city': 'Satara',
+            'state': 'Maharashtra',
+            'pincode': '415002',
+            'payment_method': 'cod',
+            'total_amount': 720
+        }
+        items = [{'product_name': 'Satara Pedha', 'weight_selected': '500g', 'quantity': 2, 'unit_price': 360}]
+
+        mock_create_resp = {
+            'order_id': 987654,
+            'shipment_id': 123456,
+            'status': 'NEW'
+        }
+
+        with patch('shiprocket_service.get_shiprocket_token', return_value='fake_jwt'), \
+             patch('shiprocket_service.shiprocket_request', return_value=mock_create_resp):
+
+            res = shiprocket_service.create_shiprocket_order(order_dict, items)
+            self.assertTrue(res['success'])
+            self.assertEqual(res['shiprocket_order_id'], '987654')
+            self.assertEqual(res['shiprocket_shipment_id'], '123456')
+
+            # Test Idempotency: when already created, it returns existing IDs without API call
+            order_dict['shiprocket_order_id'] = '987654'
+            order_dict['shiprocket_shipment_id'] = '123456'
+            order_dict['shipment_status'] = 'Created'
+
+            res_idem = shiprocket_service.create_shiprocket_order(order_dict, items)
+            self.assertTrue(res_idem['success'])
+            self.assertEqual(res_idem['shiprocket_order_id'], '987654')
+            self.assertEqual(res_idem['message'], 'Shiprocket order already created.')
+
+    def test_19_shiprocket_serviceability_awb_pickup_label(self):
+        import shiprocket_service
+
+        with patch('shiprocket_service.get_shiprocket_token', return_value='fake_jwt'):
+            # 1. Serviceability
+            mock_serv = {
+                'data': {
+                    'available_courier_companies': [
+                        {'courier_company_id': 10, 'courier_name': 'Blue Dart Air', 'rate': 90.0, 'etd': '1-2 Days', 'rating': 4.8},
+                        {'courier_company_id': 20, 'courier_name': 'Delhivery Surface', 'rate': 60.0, 'etd': '2-3 Days', 'rating': 4.6}
+                    ]
+                }
+            }
+            with patch('shiprocket_service.shiprocket_request', return_value=mock_serv):
+                s_res = shiprocket_service.check_courier_serviceability('415003', '411001', 0.5)
+                self.assertTrue(s_res['success'])
+                self.assertEqual(s_res['count'], 2)
+                # Sorted by rate ascending
+                self.assertEqual(s_res['couriers'][0]['courier_name'], 'Delhivery Surface')
+
+            # 2. Assign AWB
+            mock_awb = {'response': {'data': {'awb_code': 'SR-AWB-998877', 'courier_name': 'Delhivery Surface'}}}
+            with patch('shiprocket_service.shiprocket_request', return_value=mock_awb):
+                a_res = shiprocket_service.assign_courier(123456, 20)
+                self.assertTrue(a_res['success'])
+                self.assertEqual(a_res['awb_code'], 'SR-AWB-998877')
+
+            # 3. Schedule Pickup
+            mock_pickup = {'message': 'Pickup scheduled for tomorrow'}
+            with patch('shiprocket_service.shiprocket_request', return_value=mock_pickup):
+                p_res = shiprocket_service.request_pickup(123456)
+                self.assertTrue(p_res['success'])
+                self.assertEqual(p_res['pickup_status'], 'Scheduled')
+
+            # 4. Generate Label
+            mock_label = {'label_url': 'https://shiprocket.co/labels/sample.pdf'}
+            with patch('shiprocket_service.shiprocket_request', return_value=mock_label):
+                l_res = shiprocket_service.generate_label(123456)
+                self.assertTrue(l_res['success'])
+                self.assertEqual(l_res['label_url'], 'https://shiprocket.co/labels/sample.pdf')
+
+    def test_20_admin_shipping_create_endpoint(self):
+        # 1. Create a test order in DB
+        conn = get_db()
+        cursor = conn.cursor()
+        order_id = 'ORD-SR-ADMIN-001'
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, city, state, pincode, delivery_type,
+                delivery_date, delivery_slot, payment_method, payment_status,
+                subtotal, delivery_fee, discount, total_amount, status
+            )
+            VALUES (?, 'Vijay Patil', '9988776655', 'vijay@example.com',
+                'Sadashiv Peth', 'Pune', 'Maharashtra', '411030', 'standard',
+                '2026-09-25', 'Standard', 'razorpay', 'Payment Initiated',
+                600, 0, 0, 600, 'Pending')
+        """, (order_id,))
+        cursor.execute("""
+            INSERT INTO order_items (order_id, product_id, product_name, weight_selected, quantity, unit_price, item_total)
+            VALUES (?, 'satara-kandi-pedha', 'Satara Kandi Pedha', '500g', 1, 600, 600)
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        # 2. Test 401 Unauthorized without session
+        with self.client.session_transaction() as sess:
+            sess.clear()
+        unauth_resp = self.client.post(f'/api/admin/orders/{order_id}/shipping/create')
+        self.assertEqual(unauth_resp.status_code, 401)
+
+        # 3. Test 400 when order is unverified (Payment Initiated, not Paid)
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+
+        with patch('shiprocket_service.is_configured', return_value=True):
+            bad_pay_resp = self.client.post(f'/api/admin/orders/{order_id}/shipping/create')
+            self.assertEqual(bad_pay_resp.status_code, 400)
+            self.assertIn('cannot be created for unpaid order', bad_pay_resp.get_json()['error'])
+
+        # 4. Mark order as Paid and test successful shipment creation
+        conn = get_db()
+        conn.execute("UPDATE orders SET payment_status = 'Paid', status = 'Confirmed' WHERE id = ?", (order_id,))
+        conn.commit()
+        conn.close()
+
+        mock_sr_create = {
+            'success': True,
+            'shiprocket_order_id': '887766',
+            'shiprocket_shipment_id': '554433',
+            'status': 'NEW'
+        }
+
+        with patch('shiprocket_service.is_configured', return_value=True), \
+             patch('shiprocket_service.create_shiprocket_order', return_value=mock_sr_create):
+
+            create_resp = self.client.post(f'/api/admin/orders/{order_id}/shipping/create')
+            self.assertEqual(create_resp.status_code, 200)
+            res_data = create_resp.get_json()
+            self.assertTrue(res_data['success'])
+            self.assertEqual(res_data['shiprocket_order_id'], '887766')
+            self.assertEqual(res_data['shiprocket_shipment_id'], '554433')
+
+        # Verify DB updated
+        conn = get_db()
+        ord_db = conn.execute("SELECT shiprocket_order_id, shiprocket_shipment_id FROM orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual(ord_db['shiprocket_order_id'], '887766')
+        self.assertEqual(ord_db['shiprocket_shipment_id'], '554433')
+        conn.close()
+
+    def test_21_admin_shipping_workflow_endpoints(self):
+        order_id = 'ORD-SR-WORKFLOW-001'
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, city, state, pincode, delivery_type,
+                payment_method, payment_status, subtotal, delivery_fee,
+                total_amount, status, shiprocket_order_id, shiprocket_shipment_id
+            )
+            VALUES (?, 'Sunil Jadhav', '9822334455', 'sunil@example.com',
+                'Rajwada', 'Satara', 'Maharashtra', '415001', 'standard',
+                'cod', 'Pending', 500, 0, 500, 'Confirmed', '991122', '334455')
+        """, (order_id,))
+        cursor.execute("""
+            INSERT INTO order_items (order_id, product_id, product_name, weight_selected, quantity, unit_price, item_total)
+            VALUES (?, 'satara-kandi-pedha', 'Satara Kandi Pedha', '500g', 1, 500, 500)
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+
+        with patch('shiprocket_service.is_configured', return_value=True):
+            # 1. Serviceability
+            with patch('shiprocket_service.check_courier_serviceability', return_value={'success': True, 'couriers': [{'courier_name': 'Delhivery', 'rate': 55.0}]}):
+                serv_resp = self.client.get(f'/api/admin/orders/{order_id}/shipping/serviceability')
+                self.assertEqual(serv_resp.status_code, 200)
+                self.assertTrue(serv_resp.get_json()['success'])
+
+            # 2. Assign Courier
+            with patch('shiprocket_service.assign_courier', return_value={'success': True, 'awb_code': 'AWB-TEST-7788', 'courier_name': 'Delhivery'}):
+                assign_resp = self.client.post(f'/api/admin/orders/{order_id}/shipping/assign-courier',
+                    data=json.dumps({'courier_id': 10}),
+                    content_type='application/json')
+                self.assertEqual(assign_resp.status_code, 200)
+                self.assertEqual(assign_resp.get_json()['awb_code'], 'AWB-TEST-7788')
+
+            # 3. Schedule Pickup
+            with patch('shiprocket_service.request_pickup', return_value={'success': True, 'message': 'Pickup booked'}):
+                pickup_resp = self.client.post(f'/api/admin/orders/{order_id}/shipping/pickup')
+                self.assertEqual(pickup_resp.status_code, 200)
+
+            # 4. Generate Label
+            with patch('shiprocket_service.generate_label', return_value={'success': True, 'label_url': 'https://sr.co/label.pdf'}):
+                label_resp = self.client.post(f'/api/admin/orders/{order_id}/shipping/label')
+                self.assertEqual(label_resp.status_code, 200)
+                self.assertEqual(label_resp.get_json()['label_url'], 'https://sr.co/label.pdf')
+
+            # 5. Track
+            with patch('shiprocket_service.track_shipment', return_value={'success': True, 'current_status': 'In Transit', 'awb_code': 'AWB-TEST-7788'}):
+                track_resp = self.client.get(f'/api/admin/orders/{order_id}/shipping/track')
+                self.assertEqual(track_resp.status_code, 200)
+                self.assertEqual(track_resp.get_json()['tracking']['current_status'], 'In Transit')
+
+    def test_22_public_shipping_track_endpoint(self):
+        order_id = 'ORD-SR-PUB-001'
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, address_line1, city, state, pincode,
+                payment_method, payment_status, subtotal, delivery_fee, total_amount,
+                status, awb_code, courier_name, shipment_status, tracking_url
+            )
+            VALUES (?, 'Customer A', '9876543210', 'Street 1', 'Satara', 'Maharashtra', '415001',
+                'cod', 'Pending', 300, 0, 300, 'Dispatched', 'AWB-PUB-1234', 'Blue Dart', 'In Transit',
+                'https://shiprocket.co/tracking/AWB-PUB-1234')
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        resp = self.client.get(f'/api/shipping/track/{order_id}')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['awb_code'], 'AWB-PUB-1234')
+        self.assertEqual(data['courier_name'], 'Blue Dart')
+        self.assertEqual(data['shipment_status'], 'In Transit')
+
+    def test_23_shiprocket_webhook_processing(self):
+        order_id = 'ORD-SR-WH-COD-001'
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, address_line1, city, state, pincode,
+                payment_method, payment_status, subtotal, delivery_fee, total_amount,
+                status, shiprocket_shipment_id
+            )
+            VALUES (?, 'COD Customer', '9876543210', 'Camp', 'Satara', 'Maharashtra', '415001',
+                'cod', 'Pending', 450, 0, 450, 'Confirmed', 'SR-SHIP-999')
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        # 1. Test IN TRANSIT webhook event
+        wh_transit_payload = {
+            'order_id': order_id,
+            'shipment_id': 'SR-SHIP-999',
+            'awb': 'AWB-WH-999',
+            'courier_name': 'Delhivery',
+            'current_status': 'IN TRANSIT'
+        }
+
+        transit_resp = self.client.post('/api/shipping/shiprocket/webhook',
+            data=json.dumps(wh_transit_payload),
+            content_type='application/json')
+        self.assertEqual(transit_resp.status_code, 200)
+
+        conn = get_db()
+        ord_db = conn.execute("SELECT status, shipment_status, awb_code, courier_name FROM orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual(ord_db['status'], 'Dispatched')
+        self.assertEqual(ord_db['shipment_status'], 'IN TRANSIT')
+        self.assertEqual(ord_db['awb_code'], 'AWB-WH-999')
+        conn.close()
+
+        # 2. Test DELIVERED webhook event - should update status to Delivered AND mark COD as Paid
+        wh_delivered_payload = {
+            'order_id': order_id,
+            'current_status': 'DELIVERED'
+        }
+
+        deliv_resp = self.client.post('/api/shipping/shiprocket/webhook',
+            data=json.dumps(wh_delivered_payload),
+            content_type='application/json')
+        self.assertEqual(deliv_resp.status_code, 200)
+
+        conn = get_db()
+        ord_deliv = conn.execute("SELECT status, payment_status, shipment_status FROM orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual(ord_deliv['status'], 'Delivered')
+        self.assertEqual(ord_deliv['payment_status'], 'Paid')
+        self.assertEqual(ord_deliv['shipment_status'], 'DELIVERED')
+        conn.close()
+
+    def test_24_safe_checkout_without_shiprocket(self):
+        # Verify that customer checkout succeeds even if Shiprocket is not configured or throws error
+        order_payload = {
+            'customer': {
+                'name': 'Ganesh Gaikwad',
+                'phone': '9890123456',
+                'email': 'ganesh@example.com',
+                'address1': 'Shivaji Nagar',
+                'city': 'Satara',
+                'state': 'Maharashtra',
+                'pincode': '415001'
+            },
+            'delivery': {'type': 'standard', 'fee': 0},
+            'payment': {'method': 'cod'},
+            'items': [{'product_id': 'satara-kandi-pedha', 'name': 'Satara Kandi Pedha', 'weight': '500g', 'quantity': 1}]
+        }
+
+        with patch('shiprocket_service.is_configured', return_value=False):
+            resp = self.client.post('/api/orders',
+                data=json.dumps(order_payload),
+                content_type='application/json')
+            self.assertEqual(resp.status_code, 200)
+            self.assertTrue(resp.get_json()['success'])
+
 if __name__ == '__main__':
     unittest.main()

@@ -54,6 +54,66 @@ def generate_order_id():
     suffix = ''.join(random.choices(string.ascii_uppercase + string.digits, k=5))
     return f"MP-{datetime.now().strftime('%Y%m%d')}-{suffix}"
 
+def trigger_shiprocket_order_creation_safe(order_id):
+    """
+    Safely triggers Shiprocket order creation for eligible orders (Paid or COD).
+    Never breaks customer checkout or payment verification if Shiprocket fails or is unconfigured.
+    Returns: dict with result or None if skipped/failed.
+    """
+    try:
+        import shiprocket_service
+        if not shiprocket_service.is_configured():
+            app.logger.info(f"Shiprocket not configured. Skipping auto-shipment for order {order_id}")
+            return None
+
+        cfg = shiprocket_service.get_config()
+        if not cfg.get('auto_create', False):
+            app.logger.info(f"Shiprocket auto_create is disabled. Order {order_id} can be shipped via Admin panel.")
+            return None
+
+        conn = get_db()
+        try:
+            order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+            if not order:
+                return None
+
+            pay_method = str(order['payment_method'] or '').lower()
+            pay_status = str(order['payment_status'] or '')
+            if pay_method != 'cod' and pay_status != 'Paid':
+                app.logger.info(f"Order {order_id} is not eligible for shipment yet (Method: {pay_method}, Status: {pay_status}).")
+                return None
+
+            if order['shiprocket_order_id']:
+                app.logger.info(f"Order {order_id} already has Shiprocket Order ID {order['shiprocket_order_id']}.")
+                return None
+
+            items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+            order_dict = dict(order)
+            items_list = [dict(it) for it in items]
+
+            res = shiprocket_service.create_shiprocket_order(order_dict, items_list)
+            if res.get('success'):
+                sr_order_id = str(res.get('shiprocket_order_id'))
+                sr_shipment_id = str(res.get('shiprocket_shipment_id'))
+                sr_status = res.get('status', 'Created')
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE orders 
+                    SET shiprocket_order_id = ?,
+                        shiprocket_shipment_id = ?,
+                        shipment_status = ?,
+                        shiprocket_created_at = datetime('now', 'localtime')
+                    WHERE id = ?
+                """, (sr_order_id, sr_shipment_id, sr_status, order_id))
+                conn.commit()
+                app.logger.info(f"Shiprocket shipment created for order {order_id}: SR Order {sr_order_id}, Shipment {sr_shipment_id}")
+                return res
+        finally:
+            conn.close()
+    except Exception as e:
+        app.logger.error(f"Failed to auto-create Shiprocket order for {order_id}: {e}")
+        return None
+
 # Context processor for global data (categories, cart helpers)
 @app.context_processor
 def inject_global_data():
@@ -549,6 +609,10 @@ def api_create_order():
     wa_msg = f"Namaskar Mama Pedhewale!%0AOrder ID: {order_id}%0AName: {customer.get('name')}%0AItems: {len(validated_items)} items%0ATotal: Rs. {total_amount}%0APayment: {payment_method.upper()}%0APincode: {customer.get('pincode')}"
     wa_url = f"https://wa.me/919699106264?text={wa_msg}"
 
+    # Auto-trigger Shiprocket order creation for COD orders (safe & non-blocking)
+    if payment_method == 'cod':
+        trigger_shiprocket_order_creation_safe(order_id)
+
     return jsonify({
         'success': True,
         'order_id': order_id,
@@ -824,6 +888,9 @@ def api_razorpay_verify():
 
     conn.close()
 
+    # Trigger Shiprocket order creation safely for verified paid order
+    trigger_shiprocket_order_creation_safe(order_id)
+
     return jsonify({
         'success': True,
         'order_id': order_id,
@@ -900,6 +967,7 @@ def api_razorpay_webhook():
             """, (rzp_payment_id, json.dumps(payment_entity), order['id']))
             conn.commit()
             app.logger.info(f"Order {order['id']} marked Paid via webhook event {event_type}")
+            trigger_shiprocket_order_creation_safe(order['id'])
 
     elif event_type == 'payment.failed':
         payment_entity = payload.get('payment', {}).get('entity', {})
@@ -1058,6 +1126,494 @@ def api_admin_update_product_prices(product_id):
         'price_1kg': p1kg,
         'message': f"Prices updated for {prod['name']}."
     })
+
+# ==================== SHIPROCKET SHIPPING & LOGISTICS API ====================
+
+@app.route('/api/admin/orders/<order_id>/shipping/create', methods=['POST'])
+def api_admin_shipping_create(order_id):
+    """
+    Manually creates an ad-hoc shipment order in Shiprocket from Admin portal.
+    Enforces eligibility (must be Paid or COD) and idempotency.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({
+            'error': 'Shiprocket credentials are not configured. Please set SHIPROCKET_EMAIL and SHIPROCKET_PASSWORD.'
+        }), 400
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': f"Order {order_id} not found."}), 404
+
+    # Verification check: only Paid or COD
+    pay_method = str(order['payment_method'] or '').lower()
+    pay_status = str(order['payment_status'] or '')
+    if pay_method != 'cod' and pay_status != 'Paid':
+        conn.close()
+        return jsonify({
+            'error': f"Shipment cannot be created for unpaid order (Method: {pay_method}, Status: {pay_status})."
+        }), 400
+
+    # Idempotency check
+    if order['shiprocket_order_id']:
+        conn.close()
+        return jsonify({
+            'success': True,
+            'message': 'Shiprocket shipment order already exists.',
+            'shiprocket_order_id': order['shiprocket_order_id'],
+            'shiprocket_shipment_id': order['shiprocket_shipment_id'],
+            'shipment_status': order['shipment_status'] or 'Created',
+            'awb_code': order['awb_code'],
+            'courier_name': order['courier_name']
+        })
+
+    items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+    order_dict = dict(order)
+    items_list = [dict(it) for it in items]
+
+    try:
+        res = shiprocket_service.create_shiprocket_order(order_dict, items_list)
+        sr_order_id = str(res.get('shiprocket_order_id'))
+        sr_shipment_id = str(res.get('shiprocket_shipment_id'))
+        status = res.get('status', 'Created')
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE orders 
+            SET shiprocket_order_id = ?,
+                shiprocket_shipment_id = ?,
+                shipment_status = ?,
+                shiprocket_created_at = datetime('now', 'localtime')
+            WHERE id = ?
+        """, (sr_order_id, sr_shipment_id, status, order_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f"Shipment created in Shiprocket (Order #{sr_order_id})",
+            'shiprocket_order_id': sr_order_id,
+            'shiprocket_shipment_id': sr_shipment_id,
+            'shipment_status': status
+        })
+    except shiprocket_service.ShiprocketError as e:
+        conn.close()
+        app.logger.error(f"Shiprocket order creation error for {order_id}: {e}")
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        conn.close()
+        app.logger.error(f"Unexpected error creating Shiprocket order: {e}")
+        return jsonify({'error': f"Internal server error: {str(e)}"}), 500
+
+@app.route('/api/admin/orders/<order_id>/shipping/serviceability', methods=['GET'])
+def api_admin_shipping_serviceability(order_id):
+    """
+    Checks courier serviceability, rates, and estimated delivery dates for an order.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({'error': 'Shiprocket is not configured.'}), 400
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
+    conn.close()
+
+    weight = shiprocket_service.calculate_order_weight([dict(it) for it in items])
+    is_cod = (str(order['payment_method']).lower() == 'cod')
+
+    try:
+        data = shiprocket_service.check_courier_serviceability(
+            pickup_pincode='415003',
+            delivery_pincode=order['pincode'],
+            weight=weight,
+            is_cod=is_cod
+        )
+        return jsonify(data)
+    except shiprocket_service.ShiprocketError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f"Failed to check courier serviceability: {str(e)}"}), 500
+
+@app.route('/api/admin/orders/<order_id>/shipping/assign-courier', methods=['POST'])
+def api_admin_shipping_assign_courier(order_id):
+    """
+    Assigns courier partner and generates AWB tracking code for a Shiprocket shipment.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({'error': 'Shiprocket is not configured.'}), 400
+
+    req_data = request.get_json(silent=True) or {}
+    courier_id = req_data.get('courier_id')
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    shipment_id = order['shiprocket_shipment_id']
+    if not shipment_id:
+        conn.close()
+        return jsonify({'error': 'Shipment has not been created in Shiprocket yet. Please create shipment first.'}), 400
+
+    try:
+        res = shiprocket_service.assign_courier(shipment_id, courier_id)
+        awb_code = res['awb_code']
+        courier_name = res['courier_name']
+        tracking_url = f"https://shiprocket.co/tracking/{awb_code}"
+
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE orders 
+            SET awb_code = ?,
+                courier_name = ?,
+                tracking_number = ?,
+                tracking_url = ?,
+                shipment_status = 'AWB Assigned',
+                shiprocket_updated_at = datetime('now', 'localtime')
+            WHERE id = ?
+        """, (awb_code, courier_name, awb_code, tracking_url, order_id))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': f"Courier {courier_name} assigned with AWB: {awb_code}",
+            'awb_code': awb_code,
+            'courier_name': courier_name,
+            'tracking_url': tracking_url
+        })
+    except shiprocket_service.ShiprocketError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f"Failed to assign courier: {str(e)}"}), 500
+
+@app.route('/api/admin/orders/<order_id>/shipping/pickup', methods=['POST'])
+def api_admin_shipping_pickup(order_id):
+    """
+    Schedules doorstep courier pickup from Mama Pedhewale Satara kitchen.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({'error': 'Shiprocket is not configured.'}), 400
+
+    req_data = request.get_json(silent=True) or {}
+    pickup_date = req_data.get('pickup_date')
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    shipment_id = order['shiprocket_shipment_id']
+    if not shipment_id:
+        conn.close()
+        return jsonify({'error': 'Shipment has not been created in Shiprocket yet.'}), 400
+
+    if not order['awb_code']:
+        conn.close()
+        return jsonify({'error': 'Please assign a courier and generate AWB before scheduling pickup.'}), 400
+
+    try:
+        res = shiprocket_service.request_pickup(shipment_id, pickup_date)
+        cursor = conn.cursor()
+        cursor.execute("""
+            UPDATE orders 
+            SET pickup_scheduled_at = datetime('now', 'localtime'),
+                shipment_status = 'Pickup Scheduled',
+                shiprocket_updated_at = datetime('now', 'localtime')
+            WHERE id = ?
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'message': res.get('message', 'Doorstep pickup successfully scheduled.'),
+            'pickup_status': 'Scheduled'
+        })
+    except shiprocket_service.ShiprocketError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f"Failed to schedule pickup: {str(e)}"}), 500
+
+@app.route('/api/admin/orders/<order_id>/shipping/label', methods=['POST'])
+def api_admin_shipping_label(order_id):
+    """
+    Generates thermal shipping label for parcel packaging.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({'error': 'Shiprocket is not configured.'}), 400
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    shipment_id = order['shiprocket_shipment_id']
+    if not shipment_id:
+        conn.close()
+        return jsonify({'error': 'Shipment has not been created in Shiprocket yet.'}), 400
+
+    try:
+        res = shiprocket_service.generate_label(shipment_id)
+        label_url = res.get('label_url')
+        if label_url:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE orders SET label_url = ? WHERE id = ?", (label_url, order_id))
+            conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'label_url': label_url
+        })
+    except shiprocket_service.ShiprocketError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f"Failed to generate shipping label: {str(e)}"}), 500
+
+@app.route('/api/admin/orders/<order_id>/shipping/invoice', methods=['POST'])
+def api_admin_shipping_invoice(order_id):
+    """
+    Generates printable tax invoice via Shiprocket.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({'error': 'Shiprocket is not configured.'}), 400
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    sr_order_id = order['shiprocket_order_id']
+    if not sr_order_id:
+        conn.close()
+        return jsonify({'error': 'Shiprocket Order ID missing for this order.'}), 400
+
+    try:
+        res = shiprocket_service.generate_invoice(sr_order_id)
+        invoice_url = res.get('invoice_url')
+        if invoice_url:
+            cursor = conn.cursor()
+            cursor.execute("UPDATE orders SET invoice_url = ? WHERE id = ?", (invoice_url, order_id))
+            conn.commit()
+        conn.close()
+
+        return jsonify({
+            'success': True,
+            'invoice_url': invoice_url
+        })
+    except shiprocket_service.ShiprocketError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f"Failed to generate invoice: {str(e)}"}), 500
+
+@app.route('/api/admin/orders/<order_id>/shipping/track', methods=['GET'])
+def api_admin_shipping_track(order_id):
+    """
+    Retrieves real-time tracking checkpoints from Shiprocket and syncs status.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    import shiprocket_service
+    if not shiprocket_service.is_configured():
+        return jsonify({'error': 'Shiprocket is not configured.'}), 400
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    if not order:
+        conn.close()
+        return jsonify({'error': 'Order not found.'}), 404
+
+    awb_code = order['awb_code']
+    shipment_id = order['shiprocket_shipment_id']
+
+    if not awb_code and not shipment_id:
+        conn.close()
+        return jsonify({'error': 'Order does not have an AWB code or shipment ID assigned yet.'}), 400
+
+    try:
+        track_info = shiprocket_service.track_shipment(awb_code=awb_code, shipment_id=shipment_id)
+        current_status = track_info.get('current_status')
+        if current_status:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE orders 
+                SET shipment_status = ?,
+                    shiprocket_updated_at = datetime('now', 'localtime')
+                WHERE id = ?
+            """, (current_status, order_id))
+            conn.commit()
+        conn.close()
+        return jsonify({'success': True, 'tracking': track_info})
+    except shiprocket_service.ShiprocketError as e:
+        conn.close()
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f"Failed to track shipment: {str(e)}"}), 500
+
+@app.route('/api/shipping/track/<order_id>', methods=['GET'])
+def api_public_shipping_track(order_id):
+    """
+    Public tracking endpoint for customers.
+    Provides courier partner, AWB code, shipment status, and live tracking URL.
+    """
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    conn.close()
+
+    if not order:
+        return jsonify({'error': 'Order not found.'}), 404
+
+    awb_code = order['awb_code'] or order['tracking_number']
+    courier_name = order['courier_name'] or 'Mama Fresh Express'
+    shipment_status = order['shipment_status'] or order['status']
+    tracking_url = order['tracking_url'] or (f"https://shiprocket.co/tracking/{awb_code}" if order['awb_code'] else None)
+
+    return jsonify({
+        'success': True,
+        'order_id': order_id,
+        'status': order['status'],
+        'shipment_status': shipment_status,
+        'courier_name': courier_name,
+        'awb_code': awb_code,
+        'tracking_url': tracking_url,
+        'label_url': order['label_url']
+    })
+
+@app.route('/api/shipping/shiprocket/webhook', methods=['POST'])
+def api_shiprocket_webhook():
+    """
+    Receives automated real-time shipment updates from Shiprocket.
+    Verifies x-api-key if SHIPROCKET_WEBHOOK_SECRET is set.
+    Updates order fulfillment status, shipment status, and tracking details.
+    """
+    import shiprocket_service
+    cfg = shiprocket_service.get_config()
+    secret = cfg.get('webhook_secret')
+
+    if secret:
+        client_key = request.headers.get('x-api-key') or request.headers.get('X-Api-Key') or request.headers.get('HTTP_X_API_KEY')
+        if not client_key or client_key != secret:
+            app.logger.warning("Shiprocket webhook received with invalid or missing x-api-key.")
+            return jsonify({'error': 'Unauthorized webhook call.'}), 401
+
+    try:
+        payload = request.get_json(force=True) or {}
+    except Exception:
+        return jsonify({'error': 'Invalid JSON body'}), 400
+
+    app.logger.info(f"Shiprocket webhook received: {json.dumps(payload)}")
+
+    internal_order_id = payload.get('order_id')
+    sr_shipment_id = str(payload.get('shipment_id') or '')
+    awb_code = str(payload.get('awb') or payload.get('awb_code') or '')
+    courier_name = payload.get('courier_name')
+    current_status = str(payload.get('current_status') or payload.get('status') or '').strip().upper()
+
+    conn = get_db()
+    cursor = conn.cursor()
+
+    order = None
+    if internal_order_id:
+        order = conn.execute("SELECT * FROM orders WHERE id = ?", (str(internal_order_id),)).fetchone()
+    if not order and sr_shipment_id:
+        order = conn.execute("SELECT * FROM orders WHERE shiprocket_shipment_id = ?", (sr_shipment_id,)).fetchone()
+    if not order and awb_code:
+        order = conn.execute("SELECT * FROM orders WHERE awb_code = ?", (awb_code,)).fetchone()
+
+    if not order:
+        conn.close()
+        app.logger.warning(f"Order not found for Shiprocket webhook: order_id={internal_order_id}, shipment_id={sr_shipment_id}")
+        return jsonify({'status': 'ignored', 'message': 'Order not found in database.'}), 200
+
+    new_order_status = order['status']
+    new_payment_status = order['payment_status']
+    is_cod = (str(order['payment_method']).lower() == 'cod')
+
+    if current_status in ['IN TRANSIT', 'DISPATCHED', 'PICKED UP', 'SHIPPED']:
+        if order['status'] in ['Pending', 'Confirmed', 'Packed']:
+            new_order_status = 'Dispatched'
+    elif current_status in ['OUT FOR DELIVERY']:
+        new_order_status = 'Out for Delivery'
+    elif current_status in ['DELIVERED']:
+        new_order_status = 'Delivered'
+        if is_cod and order['payment_status'] != 'Paid':
+            new_payment_status = 'Paid'
+    elif current_status in ['CANCELED', 'CANCELLED']:
+        if order['status'] not in ['Delivered']:
+            new_order_status = 'Cancelled'
+
+    tracking_url = f"https://shiprocket.co/tracking/{awb_code}" if awb_code else order['tracking_url']
+
+    cursor.execute("""
+        UPDATE orders 
+        SET status = ?,
+            payment_status = ?,
+            shipment_status = COALESCE(?, shipment_status),
+            awb_code = COALESCE(NULLIF(?, ''), awb_code),
+            courier_name = COALESCE(?, courier_name),
+            tracking_number = COALESCE(NULLIF(?, ''), tracking_number),
+            tracking_url = COALESCE(?, tracking_url),
+            shiprocket_updated_at = datetime('now', 'localtime')
+        WHERE id = ?
+    """, (
+        new_order_status,
+        new_payment_status,
+        current_status or order['shipment_status'],
+        awb_code,
+        courier_name,
+        awb_code,
+        tracking_url,
+        order['id']
+    ))
+    conn.commit()
+    conn.close()
+
+    app.logger.info(f"Order {order['id']} updated via Shiprocket webhook: status='{new_order_status}', shipment_status='{current_status}'")
+    return jsonify({'status': 'ok', 'order_id': order['id'], 'shipment_status': current_status}), 200
 
 if __name__ == '__main__':
     init_db()

@@ -112,6 +112,7 @@
                         <th class="py-3.5 px-4">Delivery Target</th>
                         <th class="py-3.5 px-4">Amount & Mode</th>
                         <th class="py-3.5 px-4">Fulfillment Status</th>
+                        <th class="py-3.5 px-4">Shiprocket Shipping</th>
                         <th class="py-3.5 px-4 text-center">Action</th>
                     </tr>
                 </thead>
@@ -158,8 +159,51 @@
                                 <option value="Cancelled" {% if ord.status == 'Cancelled' %}selected{% endif %}>Cancelled ✗</option>
                             </select>
                         </td>
+                        <td class="py-3.5 px-4">
+                            {% if ord.shiprocket_order_id %}
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-1.5">
+                                    <span class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold uppercase {% if ord.shipment_status in ['DELIVERED', 'Delivered'] %}bg-green-100 text-green-800 border border-green-200{% elif ord.shipment_status in ['AWB Assigned', 'Pickup Scheduled', 'IN TRANSIT', 'Dispatched'] %}bg-blue-100 text-blue-800 border border-blue-200{% else %}bg-purple-100 text-purple-800 border border-purple-200{% endif %}">
+                                        <i data-lucide="truck" class="w-3 h-3"></i>
+                                        <span id="sr-status-badge-{{ ord.id }}">{{ ord.shipment_status or 'Created' }}</span>
+                                    </span>
+                                </div>
+                                <div class="text-[11px] font-mono text-gray-700">
+                                    {% if ord.awb_code %}
+                                    <span class="font-bold">AWB: {{ ord.awb_code }}</span>
+                                    {% else %}
+                                    <span class="text-gray-500">SR ID: {{ ord.shiprocket_order_id }}</span>
+                                    {% endif %}
+                                </div>
+                                <div class="text-[10px] text-gray-500 truncate max-w-[130px]" title="{{ ord.courier_name }}">
+                                    {{ ord.courier_name or 'Shiprocket Express' }}
+                                </div>
+                                <button type="button" onclick="openShippingModal('{{ ord.id }}', '{{ ord.shiprocket_order_id }}', '{{ ord.shiprocket_shipment_id }}', '{{ ord.awb_code or '' }}', '{{ (ord.courier_name or '')|escape }}', '{{ ord.shipment_status or '' }}', '{{ ord.tracking_url or '' }}', '{{ ord.label_url or '' }}', '{{ ord.invoice_url or '' }}', '{{ ord.payment_method }}', '{{ ord.payment_status }}')" class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 transition">
+                                    <i data-lucide="settings-2" class="w-3 h-3"></i>
+                                    <span>Manage</span>
+                                </button>
+                            </div>
+                            {% else %}
+                            <div>
+                                <span class="inline-block px-2 py-0.5 rounded text-[10px] font-medium bg-gray-100 text-gray-500 mb-1">
+                                    Not Shipped
+                                </span>
+                                {% if ord.payment_status == 'Paid' or ord.payment_method == 'cod' %}
+                                <button type="button" onclick="openShippingModal('{{ ord.id }}', '', '', '', '', '', '', '', '', '{{ ord.payment_method }}', '{{ ord.payment_status }}')" class="flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-1 rounded-lg border border-indigo-200 transition">
+                                    <i data-lucide="package-plus" class="w-3.5 h-3.5 text-indigo-600"></i>
+                                    <span>Create</span>
+                                </button>
+                                {% else %}
+                                <span class="text-[10px] text-amber-700 block italic">Awaiting Pay</span>
+                                {% endif %}
+                            </div>
+                            {% endif %}
+                        </td>
                         <td class="py-3.5 px-4 text-center">
                             <div class="flex items-center justify-center gap-1">
+                                <button type="button" onclick="openShippingModal('{{ ord.id }}', '{{ ord.shiprocket_order_id or '' }}', '{{ ord.shiprocket_shipment_id or '' }}', '{{ ord.awb_code or '' }}', '{{ (ord.courier_name or '')|escape }}', '{{ ord.shipment_status or '' }}', '{{ ord.tracking_url or '' }}', '{{ ord.label_url or '' }}', '{{ ord.invoice_url or '' }}', '{{ ord.payment_method }}', '{{ ord.payment_status }}')" class="p-1.5 text-indigo-700 hover:bg-indigo-50 rounded-lg inline-block transition" title="Shiprocket Courier & Logistics">
+                                    <i data-lucide="truck" class="w-4 h-4"></i>
+                                </button>
                                 <a href="{{ url_for('order_success', order_id=ord.id) }}" target="_blank" class="p-1.5 text-brand-maroon hover:bg-amber-100 rounded-lg inline-block transition" title="Print Invoice">
                                     <i data-lucide="printer" class="w-4 h-4"></i>
                                 </a>
@@ -366,6 +410,93 @@
     </div>
     {% endif %}
 
+    <!-- Shipping Management Modal -->
+    <div id="shipping-modal" class="fixed inset-0 z-50 bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-3xl max-w-2xl w-full shadow-2xl border border-amber-200 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <!-- Modal Header -->
+            <div class="p-5 sm:p-6 bg-gradient-to-r from-amber-50 to-white border-b border-amber-100 flex items-center justify-between">
+                <div class="flex items-center gap-3">
+                    <div class="w-10 h-10 rounded-2xl bg-indigo-600 text-white flex items-center justify-center shadow-md">
+                        <i data-lucide="truck" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h3 class="font-serif font-bold text-lg text-brand-maroon">Shiprocket Logistics Manager</h3>
+                        <p class="text-xs text-gray-500">Order ID: <span id="sm-order-id" class="font-mono font-bold text-gray-900"></span></p>
+                    </div>
+                </div>
+                <button type="button" onclick="closeShippingModal()" class="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full transition">
+                    <i data-lucide="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+
+            <!-- Modal Content -->
+            <div class="p-5 sm:p-6 space-y-5 max-h-[75vh] overflow-y-auto">
+                <!-- Status & ID Summary Card -->
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-200 text-xs">
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Status</span>
+                        <span id="sm-status" class="font-bold text-indigo-700">Not Created</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Shiprocket Order ID</span>
+                        <span id="sm-sr-order-id" class="font-mono font-bold text-gray-800">-</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block">AWB Code</span>
+                        <span id="sm-awb-code" class="font-mono font-bold text-gray-800">-</span>
+                    </div>
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Courier Partner</span>
+                        <span id="sm-courier-name" class="font-semibold text-gray-800">-</span>
+                    </div>
+                </div>
+
+                <!-- Action Controls -->
+                <div class="flex flex-wrap gap-2.5">
+                    <button type="button" id="btn-create-shipment" onclick="createShipmentAction()" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm">
+                        <i data-lucide="package-plus" class="w-4 h-4"></i>
+                        <span>Create in Shiprocket</span>
+                    </button>
+
+                    <button type="button" id="btn-check-couriers" onclick="checkCouriersAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="search" class="w-4 h-4 text-brand-golddark"></i>
+                        <span>Couriers &amp; Rates</span>
+                    </button>
+
+                    <button type="button" id="btn-schedule-pickup" onclick="schedulePickupAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i>
+                        <span>Schedule Satara Pickup</span>
+                    </button>
+
+                    <button type="button" id="btn-download-label" onclick="downloadLabelAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="printer" class="w-4 h-4 text-brand-maroon"></i>
+                        <span>Print Shipping Label</span>
+                    </button>
+
+                    <button type="button" id="btn-live-track" onclick="trackShipmentAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="navigation" class="w-4 h-4 text-blue-600"></i>
+                        <span>Live Tracking</span>
+                    </button>
+                </div>
+
+                <!-- Dynamic Container for Courier Serviceability List or Tracking checkpoints -->
+                <div id="sm-dynamic-area" class="hidden rounded-2xl border border-gray-200 p-4 bg-white space-y-3">
+                </div>
+            </div>
+
+            <!-- Modal Footer -->
+            <div class="p-4 bg-gray-50 border-t border-gray-100 flex items-center justify-between text-xs">
+                <span class="text-gray-500 flex items-center gap-1">
+                    <i data-lucide="shield-check" class="w-4 h-4 text-emerald-600"></i>
+                    Shiprocket External API Integration
+                </span>
+                <button type="button" onclick="closeShippingModal()" class="px-4 py-2 bg-gray-200 hover:bg-gray-300 text-gray-700 font-semibold rounded-xl transition">
+                    Close
+                </button>
+            </div>
+        </div>
+    </div>
+
 </div>
 {% endblock %}
 
@@ -520,6 +651,268 @@
             lucide.createIcons();
             console.error(err);
             alert('An error occurred while updating prices.');
+        });
+    }
+
+    // ==================== SHIPROCKET SHIPPING LOGISTICS JS ====================
+    let currentShippingOrder = {
+        id: '',
+        srOrderId: '',
+        shipmentId: '',
+        awb: '',
+        courier: '',
+        status: '',
+        trackingUrl: '',
+        labelUrl: '',
+        invoiceUrl: '',
+        paymentMethod: '',
+        paymentStatus: ''
+    };
+
+    function openShippingModal(orderId, srOrderId, shipmentId, awb, courier, status, trackingUrl, labelUrl, invoiceUrl, payMethod, payStatus) {
+        currentShippingOrder = {
+            id: orderId,
+            srOrderId: srOrderId || '',
+            shipmentId: shipmentId || '',
+            awb: awb || '',
+            courier: courier || '',
+            status: status || 'Not Created',
+            trackingUrl: trackingUrl || '',
+            labelUrl: labelUrl || '',
+            invoiceUrl: invoiceUrl || '',
+            paymentMethod: payMethod || '',
+            paymentStatus: payStatus || ''
+        };
+
+        document.getElementById('sm-order-id').innerText = orderId;
+        document.getElementById('sm-status').innerText = currentShippingOrder.status;
+        document.getElementById('sm-sr-order-id').innerText = currentShippingOrder.srOrderId || '-';
+        document.getElementById('sm-awb-code').innerText = currentShippingOrder.awb || '-';
+        document.getElementById('sm-courier-name').innerText = currentShippingOrder.courier || '-';
+
+        const dynamicArea = document.getElementById('sm-dynamic-area');
+        dynamicArea.classList.add('hidden');
+        dynamicArea.innerHTML = '';
+
+        const hasSrOrder = Boolean(currentShippingOrder.srOrderId);
+        const btnCreate = document.getElementById('btn-create-shipment');
+        if (hasSrOrder) {
+            btnCreate.classList.add('opacity-60');
+            btnCreate.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-green-300"></i><span>Shipment Created</span>';
+        } else {
+            btnCreate.classList.remove('opacity-60');
+            btnCreate.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
+        }
+
+        document.getElementById('shipping-modal').classList.remove('hidden');
+        lucide.createIcons();
+    }
+
+    function closeShippingModal() {
+        const modal = document.getElementById('shipping-modal');
+        if (modal) modal.classList.add('hidden');
+    }
+
+    function createShipmentAction() {
+        const btn = document.getElementById('btn-create-shipment');
+        btn.disabled = true;
+        btn.innerHTML = '<span>Creating...</span>';
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/create`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            btn.disabled = false;
+            if (data.success) {
+                currentShippingOrder.srOrderId = data.shiprocket_order_id;
+                currentShippingOrder.shipmentId = data.shiprocket_shipment_id;
+                currentShippingOrder.status = data.shipment_status || 'Created';
+                document.getElementById('sm-sr-order-id').innerText = data.shiprocket_order_id;
+                document.getElementById('sm-status').innerText = currentShippingOrder.status;
+                showToast('Shiprocket Created', `Order #${data.shiprocket_order_id} recorded in Shiprocket.`);
+                btn.classList.add('opacity-60');
+                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-green-300"></i><span>Shipment Created</span>';
+                lucide.createIcons();
+            } else {
+                btn.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
+                lucide.createIcons();
+                alert(data.error || 'Failed to create Shiprocket shipment.');
+            }
+        })
+        .catch(err => {
+            btn.disabled = false;
+            btn.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
+            lucide.createIcons();
+            alert('Error creating shipment: ' + err);
+        });
+    }
+
+    function checkCouriersAction() {
+        const dynamicArea = document.getElementById('sm-dynamic-area');
+        dynamicArea.classList.remove('hidden');
+        dynamicArea.innerHTML = '<div class="text-xs text-gray-500 py-3 text-center">Fetching available courier partners from Shiprocket...</div>';
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/serviceability`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.couriers && data.couriers.length > 0) {
+                let html = `
+                    <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                        <h4 class="font-bold text-xs text-gray-800">Available Couriers for PIN ${data.delivery_pincode} (${data.couriers.length} options)</h4>
+                    </div>
+                    <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                `;
+                data.couriers.forEach(c => {
+                    html += `
+                        <div class="p-3 bg-amber-50/50 rounded-xl border border-amber-200/70 flex items-center justify-between text-xs">
+                            <div>
+                                <span class="font-bold text-gray-900 block">${c.courier_name}</span>
+                                <span class="text-gray-500 text-[11px]">Est: ${c.etd} &bull; Rating: ★ ${c.rating}</span>
+                            </div>
+                            <div class="flex items-center gap-3">
+                                <span class="font-bold text-brand-maroon">₹${c.rate}</span>
+                                <button type="button" onclick="assignCourierAction(${c.courier_company_id}, '${c.courier_name.replace(/'/g, "\\'")}')" class="px-3 py-1 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-lg text-xs font-bold transition">
+                                    Assign &amp; AWB
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                html += '</div>';
+                dynamicArea.innerHTML = html;
+            } else {
+                dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">${data.error || 'No serviceable couriers found for this pincode.'}</div>`;
+            }
+        })
+        .catch(err => {
+            dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">Error checking couriers: ${err}</div>`;
+        });
+    }
+
+    function assignCourierAction(courierId, courierName) {
+        if (!currentShippingOrder.shipmentId && !currentShippingOrder.srOrderId) {
+            alert('Please create the Shiprocket shipment first before assigning courier.');
+            return;
+        }
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/assign-courier`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ courier_id: courierId })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                currentShippingOrder.awb = data.awb_code;
+                currentShippingOrder.courier = data.courier_name;
+                currentShippingOrder.trackingUrl = data.tracking_url;
+                currentShippingOrder.status = 'AWB Assigned';
+                document.getElementById('sm-awb-code').innerText = data.awb_code;
+                document.getElementById('sm-courier-name').innerText = data.courier_name;
+                document.getElementById('sm-status').innerText = 'AWB Assigned';
+
+                showToast('Courier Assigned', `AWB ${data.awb_code} generated for ${data.courier_name}`);
+                checkCouriersAction();
+            } else {
+                alert(data.error || 'Failed to assign courier.');
+            }
+        })
+        .catch(err => alert('Error assigning courier: ' + err));
+    }
+
+    function schedulePickupAction() {
+        if (!currentShippingOrder.awb) {
+            alert('Please assign a courier partner and generate an AWB first before requesting pickup.');
+            return;
+        }
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/pickup`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                currentShippingOrder.status = 'Pickup Scheduled';
+                document.getElementById('sm-status').innerText = 'Pickup Scheduled';
+                showToast('Pickup Scheduled', data.message || 'Doorstep Satara pickup requested.');
+            } else {
+                alert(data.error || 'Failed to schedule pickup.');
+            }
+        })
+        .catch(err => alert('Error scheduling pickup: ' + err));
+    }
+
+    function downloadLabelAction() {
+        if (!currentShippingOrder.shipmentId && !currentShippingOrder.srOrderId) {
+            alert('Please create the shipment first.');
+            return;
+        }
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/label`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.label_url) {
+                window.open(data.label_url, '_blank');
+                showToast('Shipping Label', 'Label opened in new tab.');
+            } else {
+                alert(data.error || 'Failed to generate shipping label.');
+            }
+        })
+        .catch(err => alert('Error generating label: ' + err));
+    }
+
+    function trackShipmentAction() {
+        if (!currentShippingOrder.awb && !currentShippingOrder.shipmentId) {
+            alert('AWB or Shipment ID is required for live tracking.');
+            return;
+        }
+
+        const dynamicArea = document.getElementById('sm-dynamic-area');
+        dynamicArea.classList.remove('hidden');
+        dynamicArea.innerHTML = '<div class="text-xs text-gray-500 py-3 text-center">Fetching live tracking scan from Shiprocket...</div>';
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/track`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.tracking) {
+                const t = data.tracking;
+                let html = `
+                    <div class="space-y-3">
+                        <div class="flex items-center justify-between pb-2 border-b border-gray-100">
+                            <div>
+                                <span class="text-xs font-bold text-gray-900 block">${t.courier_name} &bull; AWB: ${t.awb_code}</span>
+                                <span class="text-[11px] text-gray-500">Status: <strong class="text-indigo-700">${t.current_status}</strong></span>
+                            </div>
+                            ${t.tracking_url ? `<a href="${t.tracking_url}" target="_blank" class="px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold">Open Public Tracker &rarr;</a>` : ''}
+                        </div>
+                        <div class="space-y-2 max-h-52 overflow-y-auto">
+                `;
+                if (t.scans && t.scans.length > 0) {
+                    t.scans.forEach(s => {
+                        html += `
+                            <div class="p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
+                                <span class="font-bold text-gray-800 block">${s.activity || s.status || 'Checkpoint'}</span>
+                                <span class="text-[10px] text-gray-500">${s.date || ''} &bull; ${s.location || ''}</span>
+                            </div>
+                        `;
+                    });
+                } else {
+                    html += `<div class="text-xs text-gray-500 py-2">No transit activity logged yet by ${t.courier_name}.</div>`;
+                }
+                html += '</div></div>';
+                dynamicArea.innerHTML = html;
+            } else {
+                dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">${data.error || 'Tracking details currently unavailable.'}</div>`;
+            }
+        })
+        .catch(err => {
+            dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">Error tracking shipment: ${err}</div>`;
         });
     }
 </script>

@@ -174,10 +174,10 @@
                     </div>
                 </div>
 
-                {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}
+                {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] or order.awb_code %}
                 <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-amber-200 text-xs text-gray-700 shadow-xs">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span class="font-semibold text-[11px]">AWB: <strong>{{ order.tracking_number or ('MP-EXP-' + order.id[-5:]) }}</strong></span>
+                    <span class="font-semibold text-[11px]">AWB: <strong>{{ order.awb_code or order.tracking_number or ('MP-EXP-' + order.id[-5:]) }}</strong></span>
                 </div>
                 {% endif %}
             </div>
@@ -190,10 +190,12 @@
                     <span class="text-[11px] text-gray-500">NH-4 Highway, Wadhe Phata, Satara - 415003</span>
                 </div>
                 <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
-                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">2. Transit Route</span>
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">2. Transit Route &amp; Partner</span>
                     <strong class="text-xs text-gray-900 block">{{ order.courier_name or 'Mama Fresh Express' }}</strong>
                     <span class="text-[11px] text-gray-500">
-                        {% if order.status in ['Dispatched', 'Out for Delivery'] %}
+                        {% if order.shipment_status and order.shipment_status != 'Pending' %}
+                        Shiprocket Status: {{ order.shipment_status }}
+                        {% elif order.status in ['Dispatched', 'Out for Delivery'] %}
                         In Transit &bull; Temperature Controlled Mawa Box
                         {% elif order.status == 'Delivered' %}
                         Delivered Safely &bull; Journey Completed
@@ -240,13 +242,23 @@
                 {% endif %}
             </div>
 
-            <!-- Google Maps External Direct Navigation Link -->
+            <!-- External Direct Navigation & Tracking Links -->
             <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <a href="https://www.google.com/maps/dir/?api=1&origin=Mama+Kandi+Pedhewale+NH4+Highway+Wadhe+Satara+415003&destination={{ (order.address_line1 + ', ' + order.city + ', ' + order.pincode)|urlencode }}" target="_blank" rel="noopener noreferrer" class="px-5 py-2.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
-                    <i data-lucide="map" class="w-4 h-4 text-brand-gold"></i>
-                    <span>Open Live Route on Google Maps</span>
-                    <i data-lucide="external-link" class="w-3.5 h-3.5 text-gray-300"></i>
-                </a>
+                <div class="flex flex-wrap items-center gap-2">
+                    <a href="https://www.google.com/maps/dir/?api=1&origin=Mama+Kandi+Pedhewale+NH4+Highway+Wadhe+Satara+415003&destination={{ (order.address_line1 + ', ' + order.city + ', ' + order.pincode)|urlencode }}" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
+                        <i data-lucide="map" class="w-4 h-4 text-brand-gold"></i>
+                        <span>Live Google Maps</span>
+                        <i data-lucide="external-link" class="w-3.5 h-3.5 text-gray-300"></i>
+                    </a>
+
+                    {% if order.tracking_url or order.awb_code %}
+                    <a href="{{ order.tracking_url or ('https://shiprocket.co/tracking/' + order.awb_code) }}" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-md hover:shadow-lg">
+                        <i data-lucide="truck" class="w-4 h-4 text-brand-gold"></i>
+                        <span>Live Courier Tracking</span>
+                        <i data-lucide="external-link" class="w-3.5 h-3.5 text-gray-200"></i>
+                    </a>
+                    {% endif %}
+                </div>
 
                 <div class="flex items-center gap-2">
                     <a href="https://wa.me/{{ store_whatsapp }}?text=Namaskar!%20I%20am%20tracking%20my%20Mama%20Pedhewale%20Order%20{{ order.id }}.%20Please%20provide%20latest%20dispatch%20status." target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
