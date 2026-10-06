@@ -1129,6 +1129,42 @@ def api_admin_update_product_prices(product_id):
 
 # ==================== SHIPROCKET SHIPPING & LOGISTICS API ====================
 
+@app.route('/api/admin/orders/<order_id>/shipping/details', methods=['GET'])
+def api_admin_shipping_details(order_id):
+    """
+    Returns full shipping and logistics details for an order to the Admin portal.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login as admin.'}), 401
+
+    conn = get_db()
+    order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    conn.close()
+
+    if not order:
+        return jsonify({'error': f"Order {order_id} not found."}), 404
+
+    return jsonify({
+        'success': True,
+        'order_id': order['id'],
+        'customer_name': order['customer_name'],
+        'customer_phone': order['customer_phone'],
+        'city': order['city'],
+        'pincode': order['pincode'],
+        'payment_method': order['payment_method'],
+        'payment_status': order['payment_status'],
+        'status': order['status'],
+        'shiprocket_order_id': order['shiprocket_order_id'],
+        'shiprocket_shipment_id': order['shiprocket_shipment_id'],
+        'awb_code': order['awb_code'],
+        'courier_name': order['courier_name'],
+        'shipment_status': order['shipment_status'],
+        'pickup_scheduled_at': order['pickup_scheduled_at'],
+        'tracking_url': order['tracking_url'],
+        'label_url': order['label_url'],
+        'invoice_url': order['invoice_url']
+    })
+
 @app.route('/api/admin/orders/<order_id>/shipping/create', methods=['POST'])
 def api_admin_shipping_create(order_id):
     """
@@ -1498,7 +1534,8 @@ def api_admin_shipping_track(order_id):
 def api_public_shipping_track(order_id):
     """
     Public tracking endpoint for customers.
-    Provides courier partner, AWB code, shipment status, and live tracking URL.
+    Provides courier partner, AWB code, shipment status, live tracking URL, and scans.
+    Never exposes internal auth tokens or secrets.
     """
     conn = get_db()
     order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
@@ -1512,15 +1549,38 @@ def api_public_shipping_track(order_id):
     shipment_status = order['shipment_status'] or order['status']
     tracking_url = order['tracking_url'] or (f"https://shiprocket.co/tracking/{awb_code}" if order['awb_code'] else None)
 
+    scans = []
+    expected_date = order['delivery_date'] or ''
+    if order['awb_code']:
+        try:
+            import shiprocket_service
+            if shiprocket_service.is_configured():
+                track_res = shiprocket_service.track_shipment(awb_code=order['awb_code'])
+                if track_res.get('success'):
+                    scans = track_res.get('scans', [])
+                    if track_res.get('expected_date'):
+                        expected_date = track_res.get('expected_date')
+                    if track_res.get('current_status'):
+                        shipment_status = track_res.get('current_status')
+        except Exception as e:
+            app.logger.warning(f"Live scan fetch skipped for public track {order_id}: {e}")
+
     return jsonify({
         'success': True,
         'order_id': order_id,
         'status': order['status'],
+        'payment_status': order['payment_status'],
+        'payment_method': order['payment_method'],
         'shipment_status': shipment_status,
         'courier_name': courier_name,
         'awb_code': awb_code,
+        'expected_date': expected_date,
         'tracking_url': tracking_url,
-        'label_url': order['label_url']
+        'has_shipment': bool(order['shiprocket_order_id'] or order['awb_code']),
+        'city': order['city'],
+        'pincode': order['pincode'],
+        'label_url': order['label_url'],
+        'scans': scans
     })
 
 @app.route('/api/shipping/shiprocket/webhook', methods=['POST'])

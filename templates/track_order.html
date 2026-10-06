@@ -103,45 +103,287 @@
             </div>
         </div>
 
-        <!-- Tracking Timeline -->
-        <div class="py-2">
+        {# Stage Calculation & Special Status Identification #}
+        {% set is_cancelled = (order.status == 'Cancelled') or (order.shipment_status and 'CANCEL' in order.shipment_status|upper) %}
+        {% set is_rto = order.shipment_status and ('RTO' in order.shipment_status|upper or 'RETURN' in order.shipment_status|upper) %}
+        {% set is_exception = order.shipment_status and ('EXCEPTION' in order.shipment_status|upper or 'DELAY' in order.shipment_status|upper or 'FAILED' in order.shipment_status|upper) %}
+
+        {% set s1_done = not is_cancelled %}
+        {% set s2_done = s1_done and (order.payment_status == 'Paid' or (order.payment_method|lower == 'cod')) %}
+        {% set s3_done = s2_done and (order.shiprocket_order_id or order.shiprocket_shipment_id or order.awb_code or order.status in ['Packed', 'Dispatched', 'Out for Delivery', 'Delivered']) %}
+        {% set s4_done = s3_done and (order.pickup_scheduled_at or (order.shipment_status and order.shipment_status|upper in ['PICKED UP', 'IN TRANSIT', 'DISPATCHED', 'SHIPPED', 'OUT FOR DELIVERY', 'DELIVERED']) or order.status in ['Dispatched', 'Out for Delivery', 'Delivered']) %}
+        {% set s5_done = s4_done and ((order.shipment_status and order.shipment_status|upper in ['IN TRANSIT', 'DISPATCHED', 'SHIPPED', 'OUT FOR DELIVERY', 'DELIVERED']) or order.status in ['Dispatched', 'Out for Delivery', 'Delivered']) %}
+        {% set s6_done = s5_done and ((order.shipment_status and order.shipment_status|upper in ['OUT FOR DELIVERY', 'DELIVERED']) or order.status in ['Out for Delivery', 'Delivered']) %}
+        {% set s7_done = s6_done and ((order.shipment_status and order.shipment_status|upper == 'DELIVERED') or order.status == 'Delivered') %}
+
+        {% if s7_done %}
+            {% set current_stage = 7 %}
+            {% set pct = 100 %}
+        {% elif s6_done %}
+            {% set current_stage = 6 %}
+            {% set pct = 83 %}
+        {% elif s5_done %}
+            {% set current_stage = 5 %}
+            {% set pct = 67 %}
+        {% elif s4_done %}
+            {% set current_stage = 4 %}
+            {% set pct = 50 %}
+        {% elif s3_done %}
+            {% set current_stage = 3 %}
+            {% set pct = 33 %}
+        {% elif s2_done %}
+            {% set current_stage = 2 %}
+            {% set pct = 17 %}
+        {% elif s1_done %}
+            {% set current_stage = 1 %}
+            {% set pct = 5 %}
+        {% else %}
+            {% set current_stage = 0 %}
+            {% set pct = 0 %}
+        {% endif %}
+
+        {% set stages = [
+            {'num': 1, 'name': 'Order Confirmed', 'sub': 'Satara Kitchen', 'icon': 'clipboard-check', 'done': s1_done},
+            {'num': 2, 'name': 'Payment Confirmed', 'sub': ('Paid Online' if order.payment_status == 'Paid' else ('COD Verified' if order.payment_method|lower == 'cod' else 'Awaiting Payment')), 'icon': 'credit-card', 'done': s2_done},
+            {'num': 3, 'name': 'Shipment Created', 'sub': 'Packed & Boxed', 'icon': 'package', 'done': s3_done},
+            {'num': 4, 'name': 'Picked Up', 'sub': 'Satara Dispatch Hub', 'icon': 'warehouse', 'done': s4_done},
+            {'num': 5, 'name': 'In Transit', 'sub': 'Express Transit', 'icon': 'truck', 'done': s5_done},
+            {'num': 6, 'name': 'Out for Delivery', 'sub': 'Local Courier Partner', 'icon': 'navigation', 'done': s6_done},
+            {'num': 7, 'name': 'Delivered', 'sub': 'Doorstep Handover', 'icon': 'home', 'done': s7_done}
+        ] %}
+
+        <!-- Special State Alerts if applicable -->
+        {% if is_cancelled %}
+        <div class="bg-red-50 border-2 border-red-200 text-red-800 p-5 rounded-3xl flex items-start gap-3.5 shadow-xs">
+            <div class="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center shrink-0 font-bold">
+                <i data-lucide="x-circle" class="w-5 h-5"></i>
+            </div>
+            <div class="space-y-1 text-xs">
+                <h4 class="font-bold text-sm text-red-900">Order Cancelled</h4>
+                <p class="leading-relaxed">This consignment has been cancelled. If any refund is due, it will reflect in your original payment method within 5-7 working days.</p>
+                <div class="pt-1 flex items-center gap-3">
+                    <a href="tel:{{ store_phone }}" class="font-bold text-red-900 underline flex items-center gap-1">
+                        <i data-lucide="phone" class="w-3.5 h-3.5"></i>
+                        <span>Call Support ({{ store_phone }})</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% elif is_rto %}
+        <div class="bg-orange-50 border-2 border-orange-200 text-orange-900 p-5 rounded-3xl flex items-start gap-3.5 shadow-xs">
+            <div class="w-8 h-8 rounded-full bg-orange-100 text-orange-600 flex items-center justify-center shrink-0 font-bold">
+                <i data-lucide="undo-2" class="w-5 h-5"></i>
+            </div>
+            <div class="space-y-1 text-xs">
+                <h4 class="font-bold text-sm text-orange-950">Return to Origin (RTO) Initiated</h4>
+                <p class="leading-relaxed">The delivery could not be completed and the consignment is currently returning to our Satara kitchen. Our support team is in touch with the courier partner.</p>
+            </div>
+        </div>
+        {% elif is_exception %}
+        <div class="bg-amber-50 border-2 border-amber-200 text-amber-900 p-5 rounded-3xl flex items-start gap-3.5 shadow-xs">
+            <div class="w-8 h-8 rounded-full bg-amber-100 text-amber-700 flex items-center justify-center shrink-0 font-bold">
+                <i data-lucide="alert-triangle" class="w-5 h-5"></i>
+            </div>
+            <div class="space-y-1 text-xs">
+                <h4 class="font-bold text-sm text-amber-950">Delivery Exception / Transit Notice</h4>
+                <p class="leading-relaxed">The courier reported a temporary delay or delivery attempt notice. Your fresh mithai parcel is safeguarded and rescheduled for next delivery attempt.</p>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- 7-Stage Shipping Timeline: Desktop View -->
+        <div class="hidden md:block py-4">
             <div class="relative flex items-center justify-between">
-                <div class="absolute left-0 top-1/2 -translate-y-1/2 w-full h-1 bg-amber-100 z-0"></div>
-                
-                <!-- Stage 1: Confirmed -->
-                <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-9 h-9 rounded-full bg-brand-maroon text-brand-gold flex items-center justify-center font-bold text-xs shadow-md">
-                        <i data-lucide="check" class="w-4 h-4"></i>
-                    </div>
-                    <span class="text-xs font-bold text-gray-800 mt-2">Confirmed</span>
-                    <span class="text-[10px] text-gray-400 hidden sm:block">Mawa Selected</span>
-                </div>
+                <!-- Background Rail -->
+                <div class="absolute left-6 right-6 top-5 -translate-y-1/2 h-1.5 bg-amber-100 z-0 rounded-full"></div>
+                <!-- Active Progress Rail -->
+                <div class="absolute left-6 top-5 -translate-y-1/2 h-1.5 bg-brand-maroon z-0 rounded-full transition-all duration-500" style="width: calc({{ pct }}% - 24px);"></div>
 
-                <!-- Stage 2: Packed -->
-                <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-9 h-9 rounded-full {% if order.status in ['Packed', 'Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
-                        <i data-lucide="package" class="w-4 h-4"></i>
+                {% for st in stages %}
+                <div class="relative z-10 flex flex-col items-center text-center w-24">
+                    <div class="w-10 h-10 rounded-full flex items-center justify-center font-bold text-xs transition-all duration-300 shadow-sm
+                        {% if st.num == 7 and st.done %}
+                            bg-emerald-600 text-white ring-4 ring-emerald-100
+                        {% elif st.num == current_stage and not s7_done %}
+                            bg-brand-maroon text-brand-gold ring-4 ring-brand-gold/40 animate-pulse
+                        {% elif st.done %}
+                            bg-brand-maroon text-brand-gold ring-4 ring-amber-100
+                        {% else %}
+                            bg-gray-100 text-gray-400 border border-gray-200
+                        {% endif %}">
+                        {% if st.done and st.num < current_stage %}
+                            <i data-lucide="check" class="w-4 h-4"></i>
+                        {% else %}
+                            <i data-lucide="{{ st.icon }}" class="w-4 h-4"></i>
+                        {% endif %}
                     </div>
-                    <span class="text-xs font-bold text-gray-800 mt-2">Satara Kitchen</span>
-                    <span class="text-[10px] text-gray-400 hidden sm:block">Fresh Packed</span>
+                    <span class="text-xs font-bold {% if st.done %}text-brand-maroon{% else %}text-gray-400{% endif %} mt-2 leading-tight">
+                        {{ st.name }}
+                    </span>
+                    <span class="text-[10px] text-gray-400 mt-0.5 leading-tight">
+                        {{ st.sub }}
+                    </span>
                 </div>
+                {% endfor %}
+            </div>
+        </div>
 
-                <!-- Stage 3: Dispatched -->
-                <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-9 h-9 rounded-full {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] %}bg-brand-maroon text-brand-gold{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
+        <!-- 7-Stage Shipping Timeline: Mobile Stacked View -->
+        <div class="md:hidden py-2">
+            <div class="relative pl-7 space-y-5 before:absolute before:left-3.5 before:top-2 before:bottom-2 before:w-0.5 before:bg-amber-200">
+                {% for st in stages %}
+                <div class="relative flex items-start gap-3">
+                    <div class="absolute -left-7 w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shadow-xs
+                        {% if st.num == 7 and st.done %}
+                            bg-emerald-600 text-white ring-2 ring-emerald-100
+                        {% elif st.num == current_stage and not s7_done %}
+                            bg-brand-maroon text-brand-gold ring-2 ring-brand-gold animate-pulse
+                        {% elif st.done %}
+                            bg-brand-maroon text-brand-gold
+                        {% else %}
+                            bg-gray-100 text-gray-400 border border-gray-200
+                        {% endif %}">
+                        {% if st.done and st.num < current_stage %}
+                            <i data-lucide="check" class="w-3.5 h-3.5"></i>
+                        {% else %}
+                            <i data-lucide="{{ st.icon }}" class="w-3.5 h-3.5"></i>
+                        {% endif %}
+                    </div>
+                    <div class="flex-1 -mt-0.5 bg-gray-50/70 p-3 rounded-2xl border border-gray-100">
+                        <div class="flex items-center justify-between gap-2">
+                            <span class="text-xs font-bold {% if st.done %}text-brand-maroon{% else %}text-gray-500{% endif %}">
+                                {{ st.num }}. {{ st.name }}
+                            </span>
+                            {% if st.num == current_stage and not s7_done %}
+                            <span class="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-100 text-brand-maroon border border-amber-300 animate-pulse">
+                                Active
+                            </span>
+                            {% elif st.done %}
+                            <span class="text-[10px] font-bold text-emerald-700 flex items-center gap-0.5">
+                                Completed ✓
+                            </span>
+                            {% endif %}
+                        </div>
+                        <p class="text-[11px] text-gray-500 mt-0.5">{{ st.sub }}</p>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- ==================== SHIPMENT SUMMARY CARD ==================== -->
+        <div class="bg-gradient-to-br from-amber-50/70 via-white to-amber-50/40 rounded-3xl p-5 sm:p-7 border-2 border-amber-200/90 shadow-sm space-y-5">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-4 border-b border-amber-200/70">
+                <div class="flex items-center gap-2.5">
+                    <div class="w-9 h-9 rounded-2xl bg-brand-maroon text-brand-gold flex items-center justify-center shadow-xs shrink-0">
                         <i data-lucide="truck" class="w-4 h-4"></i>
                     </div>
-                    <span class="text-xs font-bold text-gray-800 mt-2">Dispatched</span>
-                    <span class="text-[10px] text-gray-400 hidden sm:block">In Transit</span>
+                    <div>
+                        <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider block">Shiprocket Logistics Tracking</span>
+                        <h4 class="font-serif font-bold text-base text-brand-maroon">Shipment Summary &amp; Courier Details</h4>
+                    </div>
                 </div>
 
-                <!-- Stage 4: Delivered -->
-                <div class="relative z-10 flex flex-col items-center">
-                    <div class="w-9 h-9 rounded-full {% if order.status == 'Delivered' %}bg-green-600 text-white{% else %}bg-amber-50 text-gray-400 border border-amber-200{% endif %} flex items-center justify-center font-bold text-xs shadow-xs">
-                        <i data-lucide="home" class="w-4 h-4"></i>
+                <div class="flex items-center gap-2">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold tracking-wider hidden sm:inline">Status:</span>
+                    <span id="live-summary-status" class="px-3.5 py-1.5 rounded-full text-xs font-bold uppercase tracking-wider shadow-2xs border
+                        {% if is_cancelled %}
+                            bg-red-100 text-red-800 border-red-300
+                        {% elif is_rto %}
+                            bg-orange-100 text-orange-800 border-orange-300
+                        {% elif is_exception %}
+                            bg-amber-100 text-amber-800 border-amber-300
+                        {% elif order.status == 'Delivered' or (order.shipment_status and order.shipment_status|upper == 'DELIVERED') %}
+                            bg-emerald-100 text-emerald-800 border-emerald-300
+                        {% elif order.status in ['Dispatched', 'Out for Delivery'] or (order.shipment_status and order.shipment_status|upper in ['IN TRANSIT', 'DISPATCHED', 'OUT FOR DELIVERY']) %}
+                            bg-amber-100 text-brand-maroon border-amber-300
+                        {% else %}
+                            bg-gray-100 text-gray-800 border-gray-300
+                        {% endif %}">
+                        {{ order.shipment_status or order.status }}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Summary Details Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 text-xs">
+                <!-- Courier -->
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-1">Courier Partner</span>
+                    <div id="live-summary-courier" class="font-bold text-gray-900 text-sm flex items-center gap-1.5">
+                        <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
+                        <span>{{ order.courier_name or 'Mama Fresh Express / Shiprocket' }}</span>
                     </div>
-                    <span class="text-xs font-bold text-gray-800 mt-2">Delivered</span>
-                    <span class="text-[10px] text-gray-400 hidden sm:block">Doorstep</span>
+                    <span class="text-[11px] text-gray-500 mt-0.5 block">Express Mithai Transit</span>
+                </div>
+
+                <!-- AWB Code & Copy Button -->
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-1">AWB Tracking Code</span>
+                    <div class="flex items-center justify-between gap-1">
+                        <span id="live-summary-awb" class="font-mono font-bold text-gray-900 text-sm">
+                            {{ order.awb_code or order.tracking_number or 'Assigned upon packing' }}
+                        </span>
+                        {% if order.awb_code or order.tracking_number %}
+                        <button type="button" onclick="copyAWB('{{ order.awb_code or order.tracking_number }}')" class="px-2 py-0.5 rounded-lg bg-amber-100 text-brand-maroon hover:bg-amber-200 text-[10px] font-bold flex items-center gap-1 transition" title="Copy AWB Code">
+                            <i data-lucide="copy" class="w-3 h-3"></i>
+                            <span id="copy-awb-text">Copy</span>
+                        </button>
+                        {% endif %}
+                    </div>
+                    <span class="text-[11px] text-gray-500 mt-0.5 block">Carrier Airway Bill No.</span>
+                </div>
+
+                <!-- Estimated Delivery -->
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-1">Estimated Delivery</span>
+                    <div id="live-summary-eta" class="font-bold text-gray-900 text-sm">
+                        {{ order.delivery_date or 'Within 2-3 Business Days' }}
+                    </div>
+                    <span class="text-[11px] text-gray-500 mt-0.5 block">{{ order.delivery_slot }}</span>
+                </div>
+
+                <!-- Delivery City & PIN -->
+                <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
+                    <span class="text-[10px] text-gray-400 uppercase font-bold block mb-1">Delivery Destination</span>
+                    <div class="font-bold text-gray-900 text-sm">
+                        {{ order.city }}, {{ order.pincode }}
+                    </div>
+                    <span class="text-[11px] text-gray-500 mt-0.5 block">{{ order.customer_name }}</span>
+                </div>
+            </div>
+
+            <!-- Live Scans Container (Loaded dynamically or on refresh) -->
+            <div id="live-scans-container" class="hidden bg-white p-4 rounded-2xl border border-amber-200/80 space-y-3">
+                <h5 class="font-bold text-xs text-gray-800 flex items-center gap-2">
+                    <i data-lucide="clock" class="w-3.5 h-3.5 text-brand-golddark"></i>
+                    <span>Carrier Transit Checkpoints &amp; Scans</span>
+                </h5>
+                <div id="live-scans-list" class="space-y-2 max-h-52 overflow-y-auto pr-1"></div>
+            </div>
+
+            <!-- Actions Bar -->
+            <div class="flex flex-wrap items-center justify-between gap-3 pt-2">
+                <div class="flex flex-wrap items-center gap-2">
+                    {% if order.tracking_url or order.awb_code %}
+                    <a id="live-external-track-btn" href="{{ order.tracking_url or ('https://shiprocket.co/tracking/' + order.awb_code) }}" target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-sm hover:shadow-md">
+                        <i data-lucide="truck" class="w-4 h-4 text-brand-gold"></i>
+                        <span>Track on Courier Portal</span>
+                        <i data-lucide="external-link" class="w-3.5 h-3.5 text-amber-200"></i>
+                    </a>
+                    {% endif %}
+
+                    <button type="button" id="btn-refresh-status" onclick="refreshLiveTracking('{{ order.id }}')" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-brand-maroon border border-amber-300 rounded-xl text-xs font-bold transition flex items-center gap-2 shadow-2xs hover:shadow-xs">
+                        <i id="btn-refresh-icon" data-lucide="refresh-cw" class="w-4 h-4 text-brand-golddark"></i>
+                        <span id="btn-refresh-text">Refresh Live Status</span>
+                    </button>
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <a href="https://wa.me/{{ store_whatsapp }}?text=Namaskar!%20I%20am%20tracking%20my%20Mama%20Pedhewale%20Order%20{{ order.id }}.%20Please%20provide%20latest%20dispatch%20status." target="_blank" rel="noopener noreferrer" class="px-4 py-2.5 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="message-circle" class="w-4 h-4 text-emerald-600"></i>
+                        <span>WhatsApp Dispatch Help</span>
+                    </a>
                 </div>
             </div>
         </div>
@@ -326,15 +568,136 @@
 {% block scripts %}
 <script>
     function copyTrackingId(orderId) {
+        if (!orderId) return;
         navigator.clipboard.writeText(orderId).then(() => {
             const btnText = document.getElementById('copy-btn-text');
             if (btnText) {
                 btnText.innerText = 'Copied! ✓';
-                setTimeout(() => {
-                    btnText.innerText = 'Copy';
-                }, 2000);
+                setTimeout(() => { btnText.innerText = 'Copy'; }, 2000);
             }
         });
+    }
+
+    function copyAWB(awb) {
+        if (!awb || awb === '-' || awb.includes('Assigned')) return;
+        navigator.clipboard.writeText(awb).then(() => {
+            const btn = document.getElementById('copy-awb-text');
+            if (btn) {
+                btn.innerText = 'Copied! ✓';
+                setTimeout(() => { btn.innerText = 'Copy'; }, 2000);
+            }
+            showTrackToast('AWB Copied', `Copied AWB code: ${awb}`);
+        }).catch(() => {
+            const temp = document.createElement('input');
+            temp.value = awb;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            showTrackToast('AWB Copied', `Copied AWB code: ${awb}`);
+        });
+    }
+
+    function refreshLiveTracking(orderId) {
+        const btn = document.getElementById('btn-refresh-status');
+        const btnText = document.getElementById('btn-refresh-text');
+        const btnIcon = document.getElementById('btn-refresh-icon');
+
+        if (btn) btn.disabled = true;
+        if (btnText) btnText.innerText = 'Checking Shiprocket...';
+        if (btnIcon) btnIcon.classList.add('animate-spin');
+
+        fetch(`/api/shipping/track/${orderId}`)
+        .then(res => res.json())
+        .then(data => {
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.innerText = 'Refresh Live Status';
+            if (btnIcon) btnIcon.classList.remove('animate-spin');
+
+            if (data.success) {
+                if (data.shipment_status) {
+                    const statusEl = document.getElementById('live-summary-status');
+                    if (statusEl) statusEl.innerText = data.shipment_status;
+                }
+                if (data.courier_name) {
+                    const courierEl = document.getElementById('live-summary-courier');
+                    if (courierEl) courierEl.innerHTML = `<i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i><span>${data.courier_name}</span>`;
+                }
+                if (data.awb_code) {
+                    const awbEl = document.getElementById('live-summary-awb');
+                    if (awbEl) awbEl.innerText = data.awb_code;
+                }
+                if (data.expected_date) {
+                    const etaEl = document.getElementById('live-summary-eta');
+                    if (etaEl) etaEl.innerText = data.expected_date;
+                }
+
+                if (data.tracking_url) {
+                    const trackLink = document.getElementById('live-external-track-btn');
+                    if (trackLink) {
+                        trackLink.href = data.tracking_url;
+                        trackLink.classList.remove('hidden');
+                    }
+                }
+
+                if (data.scans && data.scans.length > 0) {
+                    const container = document.getElementById('live-scans-container');
+                    const list = document.getElementById('live-scans-list');
+                    if (container && list) {
+                        container.classList.remove('hidden');
+                        let html = '';
+                        data.scans.forEach(s => {
+                            html += `
+                                <div class="p-2.5 bg-amber-50/50 rounded-xl border border-amber-200/60 text-xs flex items-center justify-between">
+                                    <div>
+                                        <span class="font-bold text-gray-900 block">${s.activity || s.status || 'Checkpoint'}</span>
+                                        <span class="text-[10px] text-gray-500">${s.location || ''}</span>
+                                    </div>
+                                    <span class="text-[10px] text-gray-600 font-mono">${s.date || ''}</span>
+                                </div>
+                            `;
+                        });
+                        list.innerHTML = html;
+                    }
+                }
+
+                if (window.lucide) {
+                    lucide.createIcons();
+                }
+                showTrackToast('Status Updated', `Shipment status is "${data.shipment_status || data.status}"`);
+            } else {
+                alert(data.error || 'Failed to refresh tracking status.');
+            }
+        })
+        .catch(err => {
+            if (btn) btn.disabled = false;
+            if (btnText) btnText.innerText = 'Refresh Live Status';
+            if (btnIcon) btnIcon.classList.remove('animate-spin');
+            console.error('Error refreshing tracking:', err);
+        });
+    }
+
+    function showTrackToast(title, msg) {
+        const existing = document.getElementById('track-toast');
+        if (existing) existing.remove();
+
+        const toast = document.createElement('div');
+        toast.id = 'track-toast';
+        toast.className = 'fixed bottom-5 right-5 z-50 bg-brand-maroon text-white px-4 py-3 rounded-2xl shadow-xl border border-brand-gold/40 flex items-center gap-3 animate-in slide-in-from-bottom duration-300 text-xs';
+        toast.innerHTML = `
+            <div class="w-6 h-6 rounded-full bg-brand-gold text-brand-maroondark flex items-center justify-center font-bold text-xs shrink-0">✓</div>
+            <div>
+                <div class="font-bold text-brand-gold">${title}</div>
+                <div class="text-[11px] text-amber-100">${msg}</div>
+            </div>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => {
+            toast.style.transition = 'all 0.3s ease';
+            toast.style.opacity = '0';
+            toast.style.transform = 'translateY(10px)';
+            setTimeout(() => toast.remove(), 300);
+        }, 4000);
     }
 </script>
 {% endblock %}

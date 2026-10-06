@@ -909,5 +909,91 @@ class MamaPedhewaleTests(unittest.TestCase):
             self.assertEqual(resp.status_code, 200)
             self.assertTrue(resp.get_json()['success'])
 
+    def test_25_admin_shipping_details_endpoint(self):
+        # 1. Verify unauthorized access without admin login
+        unauth_client = app.test_client()
+        unauth_resp = unauth_client.get('/api/admin/orders/TEST-ORD-1/shipping/details')
+        self.assertEqual(unauth_resp.status_code, 401)
+
+        # Create an order
+        conn = get_db()
+        conn.execute("""
+            INSERT OR REPLACE INTO orders (
+                id, customer_name, customer_phone, customer_email, address_line1,
+                city, state, pincode, delivery_type, delivery_date, delivery_slot,
+                payment_method, payment_status, subtotal, delivery_fee, discount,
+                total_amount, status, shiprocket_order_id, shiprocket_shipment_id,
+                awb_code, courier_name, shipment_status, label_url, invoice_url
+            ) VALUES (
+                'MP-TEST-DETAILS-1', 'Sunita Joshi', '9822334455', 'sunita@example.com', 'Koregaon Park',
+                'Pune', 'Maharashtra', '411001', 'standard', '2026-10-10', 'Standard',
+                'upi', 'Paid', 720, 0, 0, 720, 'Confirmed', 'SR-ORD-777', 'SR-SHIP-777',
+                'AWB-777888', 'Blue Dart Express', 'AWB Assigned', 'https://sr.co/label.pdf', 'https://sr.co/inv.pdf'
+            )
+        """)
+        conn.commit()
+        conn.close()
+
+        # 2. Authenticate as admin
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+
+        resp = self.client.get('/api/admin/orders/MP-TEST-DETAILS-1/shipping/details')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['order_id'], 'MP-TEST-DETAILS-1')
+        self.assertEqual(data['shiprocket_order_id'], 'SR-ORD-777')
+        self.assertEqual(data['shiprocket_shipment_id'], 'SR-SHIP-777')
+        self.assertEqual(data['awb_code'], 'AWB-777888')
+        self.assertEqual(data['courier_name'], 'Blue Dart Express')
+        self.assertEqual(data['shipment_status'], 'AWB Assigned')
+        self.assertEqual(data['label_url'], 'https://sr.co/label.pdf')
+        self.assertEqual(data['invoice_url'], 'https://sr.co/inv.pdf')
+        self.assertEqual(data['payment_status'], 'Paid')
+        self.assertEqual(data['payment_method'], 'upi')
+
+    def test_26_customer_public_track_enhanced(self):
+        resp = self.client.get('/api/shipping/track/MP-TEST-DETAILS-1')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+        self.assertEqual(data['order_id'], 'MP-TEST-DETAILS-1')
+        self.assertEqual(data['payment_status'], 'Paid')
+        self.assertEqual(data['payment_method'], 'upi')
+        self.assertEqual(data['awb_code'], 'AWB-777888')
+        self.assertEqual(data['courier_name'], 'Blue Dart Express')
+        self.assertTrue(data['has_shipment'])
+        self.assertEqual(data['city'], 'Pune')
+        self.assertEqual(data['pincode'], '411001')
+        # Ensure credentials / sensitive tokens are not exposed
+        self.assertNotIn('token', data)
+        self.assertNotIn('password', data)
+        self.assertNotIn('email', data)
+
+    def test_27_track_order_ui_and_order_success_ui(self):
+        # 1. Track Order Page renders 7-stage shipping timeline and shipment summary
+        resp = self.client.get('/track-order?order_id=MP-TEST-DETAILS-1')
+        self.assertEqual(resp.status_code, 200)
+        html = resp.data.decode('utf-8')
+        self.assertIn('Shipment Summary &amp; Courier Details', html)
+        self.assertIn('Order Confirmed', html)
+        self.assertIn('Payment Confirmed', html)
+        self.assertIn('Shipment Created', html)
+        self.assertIn('Picked Up', html)
+        self.assertIn('In Transit', html)
+        self.assertIn('Out for Delivery', html)
+        self.assertIn('Delivered', html)
+        self.assertIn('Refresh Live Status', html)
+
+        # 2. Order Success Page renders payment vs shipping summary card
+        success_resp = self.client.get('/order-success/MP-TEST-DETAILS-1')
+        self.assertEqual(success_resp.status_code, 200)
+        success_html = success_resp.data.decode('utf-8')
+        self.assertIn('Order Reference', success_html)
+        self.assertIn('Payment', success_html)
+        self.assertIn('Shipping', success_html)
+        self.assertIn('Track Order &rarr;', success_html)
+
 if __name__ == '__main__':
     unittest.main()

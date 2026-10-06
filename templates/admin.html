@@ -431,23 +431,73 @@
 
             <!-- Modal Content -->
             <div class="p-5 sm:p-6 space-y-5 max-h-[75vh] overflow-y-auto">
-                <!-- Status & ID Summary Card -->
-                <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-200 text-xs">
+                <!-- Status & ID Summary Card (9 Fields) -->
+                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 bg-gray-50 p-4 rounded-2xl border border-gray-200 text-xs">
+                    <!-- 1. Status -->
                     <div>
-                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Status</span>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Shipment Status</span>
                         <span id="sm-status" class="font-bold text-indigo-700">Not Created</span>
                     </div>
+                    <!-- 2. Shiprocket Order ID -->
                     <div>
-                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Shiprocket Order ID</span>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Shiprocket Order ID</span>
                         <span id="sm-sr-order-id" class="font-mono font-bold text-gray-800">-</span>
                     </div>
+                    <!-- 3. Shipment ID -->
                     <div>
-                        <span class="text-[10px] text-gray-400 uppercase font-bold block">AWB Code</span>
-                        <span id="sm-awb-code" class="font-mono font-bold text-gray-800">-</span>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Shiprocket Shipment ID</span>
+                        <span id="sm-shipment-id" class="font-mono font-bold text-gray-800">-</span>
                     </div>
+                    <!-- 4. Courier Partner -->
                     <div>
-                        <span class="text-[10px] text-gray-400 uppercase font-bold block">Courier Partner</span>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Courier Partner</span>
                         <span id="sm-courier-name" class="font-semibold text-gray-800">-</span>
+                    </div>
+                    <!-- 5. AWB Code with Copy Button -->
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">AWB Tracking Code</span>
+                        <div class="flex items-center gap-1.5">
+                            <span id="sm-awb-code" class="font-mono font-bold text-gray-800">-</span>
+                            <button type="button" id="sm-btn-copy-awb" onclick="copyAWBFromAdmin()" class="hidden px-2 py-0.5 rounded bg-amber-100 text-brand-maroon hover:bg-amber-200 text-[10px] font-bold transition flex items-center gap-1" title="Copy AWB">
+                                <i data-lucide="copy" class="w-3 h-3"></i>
+                                <span id="sm-copy-awb-text">Copy</span>
+                            </button>
+                        </div>
+                    </div>
+                    <!-- 6. Pickup Status -->
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Satara Pickup Status</span>
+                        <span id="sm-pickup-status" class="font-medium text-gray-700">-</span>
+                    </div>
+                    <!-- 7. Tracking URL -->
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Tracking URL</span>
+                        <div id="sm-tracking-container">
+                            <span id="sm-tracking-none" class="text-gray-400 italic">Not Assigned</span>
+                            <a id="sm-tracking-link" href="#" target="_blank" class="hidden text-indigo-600 hover:text-indigo-800 font-bold inline-flex items-center gap-1">
+                                <span>Track Consignment &rarr;</span>
+                            </a>
+                        </div>
+                    </div>
+                    <!-- 8. Label URL -->
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Shipping Label</span>
+                        <div id="sm-label-container">
+                            <span id="sm-label-none" class="text-gray-400 italic">Not Generated</span>
+                            <a id="sm-label-link" href="#" target="_blank" class="hidden text-brand-maroon hover:text-brand-maroondark font-bold inline-flex items-center gap-1">
+                                <span>View Label &rarr;</span>
+                            </a>
+                        </div>
+                    </div>
+                    <!-- 9. Invoice URL -->
+                    <div>
+                        <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">Tax Invoice</span>
+                        <div id="sm-invoice-container">
+                            <span id="sm-invoice-none" class="text-gray-400 italic">Not Generated</span>
+                            <a id="sm-invoice-link" href="#" target="_blank" class="hidden text-emerald-700 hover:text-emerald-900 font-bold inline-flex items-center gap-1">
+                                <span>View Invoice &rarr;</span>
+                            </a>
+                        </div>
                     </div>
                 </div>
 
@@ -471,6 +521,11 @@
                     <button type="button" id="btn-download-label" onclick="downloadLabelAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
                         <i data-lucide="printer" class="w-4 h-4 text-brand-maroon"></i>
                         <span>Print Shipping Label</span>
+                    </button>
+
+                    <button type="button" id="btn-download-invoice" onclick="downloadInvoiceAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
+                        <i data-lucide="file-text" class="w-4 h-4 text-emerald-600"></i>
+                        <span>Generate Invoice</span>
                     </button>
 
                     <button type="button" id="btn-live-track" onclick="trackShipmentAction()" class="px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs">
@@ -662,12 +717,194 @@
         awb: '',
         courier: '',
         status: '',
+        pickupScheduledAt: '',
         trackingUrl: '',
         labelUrl: '',
         invoiceUrl: '',
         paymentMethod: '',
         paymentStatus: ''
     };
+
+    function renderShippingModalUI() {
+        document.getElementById('sm-order-id').innerText = currentShippingOrder.id || '-';
+        document.getElementById('sm-status').innerText = currentShippingOrder.status || 'Not Created';
+        document.getElementById('sm-sr-order-id').innerText = currentShippingOrder.srOrderId || '-';
+        document.getElementById('sm-shipment-id').innerText = currentShippingOrder.shipmentId || '-';
+        document.getElementById('sm-courier-name').innerText = currentShippingOrder.courier || '-';
+        document.getElementById('sm-awb-code').innerText = currentShippingOrder.awb || '-';
+
+        // Copy AWB button visibility
+        const copyAwbBtn = document.getElementById('sm-btn-copy-awb');
+        if (copyAwbBtn) {
+            if (currentShippingOrder.awb && currentShippingOrder.awb !== '-') {
+                copyAwbBtn.classList.remove('hidden');
+            } else {
+                copyAwbBtn.classList.add('hidden');
+            }
+        }
+
+        // Pickup status
+        const pickupEl = document.getElementById('sm-pickup-status');
+        if (pickupEl) {
+            if (currentShippingOrder.pickupScheduledAt || currentShippingOrder.status === 'Pickup Scheduled') {
+                pickupEl.innerHTML = '<span class="text-emerald-700 font-bold flex items-center gap-1"><i data-lucide="check" class="w-3.5 h-3.5"></i><span>Scheduled</span></span>';
+            } else {
+                pickupEl.innerText = 'Not Requested';
+            }
+        }
+
+        // Tracking Link
+        const trackNone = document.getElementById('sm-tracking-none');
+        const trackLink = document.getElementById('sm-tracking-link');
+        if (trackNone && trackLink) {
+            if (currentShippingOrder.trackingUrl) {
+                trackNone.classList.add('hidden');
+                trackLink.classList.remove('hidden');
+                trackLink.href = currentShippingOrder.trackingUrl;
+            } else if (currentShippingOrder.awb && currentShippingOrder.awb !== '-') {
+                trackNone.classList.add('hidden');
+                trackLink.classList.remove('hidden');
+                trackLink.href = `https://shiprocket.co/tracking/${currentShippingOrder.awb}`;
+            } else {
+                trackNone.classList.remove('hidden');
+                trackLink.classList.add('hidden');
+            }
+        }
+
+        // Label Link
+        const labelNone = document.getElementById('sm-label-none');
+        const labelLink = document.getElementById('sm-label-link');
+        if (labelNone && labelLink) {
+            if (currentShippingOrder.labelUrl) {
+                labelNone.classList.add('hidden');
+                labelLink.classList.remove('hidden');
+                labelLink.href = currentShippingOrder.labelUrl;
+            } else {
+                labelNone.classList.remove('hidden');
+                labelLink.classList.add('hidden');
+            }
+        }
+
+        // Invoice Link
+        const invoiceNone = document.getElementById('sm-invoice-none');
+        const invoiceLink = document.getElementById('sm-invoice-link');
+        if (invoiceNone && invoiceLink) {
+            if (currentShippingOrder.invoiceUrl) {
+                invoiceNone.classList.add('hidden');
+                invoiceLink.classList.remove('hidden');
+                invoiceLink.href = currentShippingOrder.invoiceUrl;
+            } else {
+                invoiceNone.classList.remove('hidden');
+                invoiceLink.classList.add('hidden');
+            }
+        }
+
+        // Action Buttons: Conditional Enabling & Styling
+        const hasSrOrder = Boolean(currentShippingOrder.srOrderId || currentShippingOrder.shipmentId);
+        const hasAwb = Boolean(currentShippingOrder.awb && currentShippingOrder.awb !== '-');
+        const isPaid = (currentShippingOrder.paymentStatus === 'Paid' || String(currentShippingOrder.paymentMethod).toLowerCase() === 'cod');
+        const isPickupDone = Boolean(currentShippingOrder.pickupScheduledAt || currentShippingOrder.status === 'Pickup Scheduled');
+
+        // 1. Create Shipment Button
+        const btnCreate = document.getElementById('btn-create-shipment');
+        if (btnCreate) {
+            if (hasSrOrder) {
+                btnCreate.disabled = true;
+                btnCreate.className = "px-4 py-2.5 bg-gray-100 text-gray-500 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-60 cursor-not-allowed border border-gray-200";
+                btnCreate.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-600"></i><span>Shipment Created ✓</span>';
+            } else if (!isPaid) {
+                btnCreate.disabled = true;
+                btnCreate.className = "px-4 py-2.5 bg-amber-50 text-amber-800 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-70 cursor-not-allowed border border-amber-200";
+                btnCreate.innerHTML = '<i data-lucide="lock" class="w-4 h-4 text-amber-600"></i><span>Awaiting Payment</span>';
+            } else {
+                btnCreate.disabled = false;
+                btnCreate.className = "px-4 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm";
+                btnCreate.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
+            }
+        }
+
+        // 2. Check Couriers Button
+        const btnCouriers = document.getElementById('btn-check-couriers');
+        if (btnCouriers) {
+            if (hasSrOrder) {
+                btnCouriers.disabled = false;
+                btnCouriers.className = "px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs";
+            } else {
+                btnCouriers.disabled = true;
+                btnCouriers.className = "px-4 py-2.5 bg-gray-50 text-gray-400 border border-gray-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-50 cursor-not-allowed";
+            }
+        }
+
+        // 3. Schedule Pickup Button
+        const btnPickup = document.getElementById('btn-schedule-pickup');
+        if (btnPickup) {
+            if (!hasAwb) {
+                btnPickup.disabled = true;
+                btnPickup.className = "px-4 py-2.5 bg-gray-50 text-gray-400 border border-gray-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-50 cursor-not-allowed";
+                btnPickup.innerHTML = '<i data-lucide="calendar" class="w-4 h-4 text-gray-400"></i><span>Schedule Satara Pickup</span>';
+            } else if (isPickupDone) {
+                btnPickup.disabled = true;
+                btnPickup.className = "px-4 py-2.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-70 cursor-not-allowed";
+                btnPickup.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-emerald-600"></i><span>Pickup Scheduled ✓</span>';
+            } else {
+                btnPickup.disabled = false;
+                btnPickup.className = "px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs";
+                btnPickup.innerHTML = '<i data-lucide="calendar" class="w-4 h-4 text-emerald-600"></i><span>Schedule Satara Pickup</span>';
+            }
+        }
+
+        // 4. Download Label Button
+        const btnLabel = document.getElementById('btn-download-label');
+        if (btnLabel) {
+            if (!hasSrOrder) {
+                btnLabel.disabled = true;
+                btnLabel.className = "px-4 py-2.5 bg-gray-50 text-gray-400 border border-gray-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-50 cursor-not-allowed";
+                btnLabel.innerHTML = '<i data-lucide="printer" class="w-4 h-4 text-gray-400"></i><span>Print Shipping Label</span>';
+            } else if (currentShippingOrder.labelUrl) {
+                btnLabel.disabled = false;
+                btnLabel.className = "px-4 py-2.5 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm";
+                btnLabel.innerHTML = '<i data-lucide="download" class="w-4 h-4 text-brand-gold"></i><span>View / Download Label</span>';
+            } else {
+                btnLabel.disabled = false;
+                btnLabel.className = "px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs";
+                btnLabel.innerHTML = '<i data-lucide="printer" class="w-4 h-4 text-brand-maroon"></i><span>Generate Shipping Label</span>';
+            }
+        }
+
+        // 5. Download Invoice Button
+        const btnInvoice = document.getElementById('btn-download-invoice');
+        if (btnInvoice) {
+            if (!hasSrOrder) {
+                btnInvoice.disabled = true;
+                btnInvoice.className = "px-4 py-2.5 bg-gray-50 text-gray-400 border border-gray-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-50 cursor-not-allowed";
+                btnInvoice.innerHTML = '<i data-lucide="file-text" class="w-4 h-4 text-gray-400"></i><span>Generate Invoice</span>';
+            } else if (currentShippingOrder.invoiceUrl) {
+                btnInvoice.disabled = false;
+                btnInvoice.className = "px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-sm";
+                btnInvoice.innerHTML = '<i data-lucide="file-check" class="w-4 h-4 text-emerald-200"></i><span>View Invoice</span>';
+            } else {
+                btnInvoice.disabled = false;
+                btnInvoice.className = "px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs";
+                btnInvoice.innerHTML = '<i data-lucide="file-text" class="w-4 h-4 text-emerald-600"></i><span>Generate Invoice</span>';
+            }
+        }
+
+        // 6. Live Track Button
+        const btnTrack = document.getElementById('btn-live-track');
+        if (btnTrack) {
+            if (hasAwb || hasSrOrder) {
+                btnTrack.disabled = false;
+                btnTrack.className = "px-4 py-2.5 bg-white hover:bg-amber-50 text-gray-800 border border-gray-300 rounded-xl text-xs font-bold transition flex items-center gap-1.5 shadow-2xs";
+            } else {
+                btnTrack.disabled = true;
+                btnTrack.className = "px-4 py-2.5 bg-gray-50 text-gray-400 border border-gray-200 rounded-xl text-xs font-bold transition flex items-center gap-1.5 opacity-50 cursor-not-allowed";
+            }
+        }
+
+        if (window.lucide) {
+            lucide.createIcons();
+        }
+    }
 
     function openShippingModal(orderId, srOrderId, shipmentId, awb, courier, status, trackingUrl, labelUrl, invoiceUrl, payMethod, payStatus) {
         currentShippingOrder = {
@@ -677,6 +914,7 @@
             awb: awb || '',
             courier: courier || '',
             status: status || 'Not Created',
+            pickupScheduledAt: '',
             trackingUrl: trackingUrl || '',
             labelUrl: labelUrl || '',
             invoiceUrl: invoiceUrl || '',
@@ -684,28 +922,35 @@
             paymentStatus: payStatus || ''
         };
 
-        document.getElementById('sm-order-id').innerText = orderId;
-        document.getElementById('sm-status').innerText = currentShippingOrder.status;
-        document.getElementById('sm-sr-order-id').innerText = currentShippingOrder.srOrderId || '-';
-        document.getElementById('sm-awb-code').innerText = currentShippingOrder.awb || '-';
-        document.getElementById('sm-courier-name').innerText = currentShippingOrder.courier || '-';
-
         const dynamicArea = document.getElementById('sm-dynamic-area');
-        dynamicArea.classList.add('hidden');
-        dynamicArea.innerHTML = '';
-
-        const hasSrOrder = Boolean(currentShippingOrder.srOrderId);
-        const btnCreate = document.getElementById('btn-create-shipment');
-        if (hasSrOrder) {
-            btnCreate.classList.add('opacity-60');
-            btnCreate.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-green-300"></i><span>Shipment Created</span>';
-        } else {
-            btnCreate.classList.remove('opacity-60');
-            btnCreate.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
+        if (dynamicArea) {
+            dynamicArea.classList.add('hidden');
+            dynamicArea.innerHTML = '';
         }
 
+        renderShippingModalUI();
         document.getElementById('shipping-modal').classList.remove('hidden');
-        lucide.createIcons();
+
+        // Fetch fresh status & details directly from backend
+        fetch(`/api/admin/orders/${orderId}/shipping/details`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                currentShippingOrder.srOrderId = data.shiprocket_order_id || currentShippingOrder.srOrderId;
+                currentShippingOrder.shipmentId = data.shiprocket_shipment_id || currentShippingOrder.shipmentId;
+                currentShippingOrder.awb = data.awb_code || currentShippingOrder.awb;
+                currentShippingOrder.courier = data.courier_name || currentShippingOrder.courier;
+                currentShippingOrder.status = data.shipment_status || currentShippingOrder.status;
+                currentShippingOrder.pickupScheduledAt = data.pickup_scheduled_at || currentShippingOrder.pickupScheduledAt;
+                currentShippingOrder.trackingUrl = data.tracking_url || currentShippingOrder.trackingUrl;
+                currentShippingOrder.labelUrl = data.label_url || currentShippingOrder.labelUrl;
+                currentShippingOrder.invoiceUrl = data.invoice_url || currentShippingOrder.invoiceUrl;
+                currentShippingOrder.paymentMethod = data.payment_method || currentShippingOrder.paymentMethod;
+                currentShippingOrder.paymentStatus = data.payment_status || currentShippingOrder.paymentStatus;
+                renderShippingModalUI();
+            }
+        })
+        .catch(err => console.warn('Could not fetch shipping details:', err));
     }
 
     function closeShippingModal() {
@@ -715,8 +960,10 @@
 
     function createShipmentAction() {
         const btn = document.getElementById('btn-create-shipment');
-        btn.disabled = true;
-        btn.innerHTML = '<span>Creating...</span>';
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Creating shipment...</span></span>';
+        }
 
         fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/create`, {
             method: 'POST',
@@ -724,57 +971,69 @@
         })
         .then(res => res.json())
         .then(data => {
-            btn.disabled = false;
             if (data.success) {
-                currentShippingOrder.srOrderId = data.shiprocket_order_id;
-                currentShippingOrder.shipmentId = data.shiprocket_shipment_id;
+                currentShippingOrder.srOrderId = String(data.shiprocket_order_id);
+                currentShippingOrder.shipmentId = String(data.shiprocket_shipment_id);
                 currentShippingOrder.status = data.shipment_status || 'Created';
-                document.getElementById('sm-sr-order-id').innerText = data.shiprocket_order_id;
-                document.getElementById('sm-status').innerText = currentShippingOrder.status;
+                if (data.awb_code) currentShippingOrder.awb = data.awb_code;
+                if (data.courier_name) currentShippingOrder.courier = data.courier_name;
+                renderShippingModalUI();
                 showToast('Shiprocket Created', `Order #${data.shiprocket_order_id} recorded in Shiprocket.`);
-                btn.classList.add('opacity-60');
-                btn.innerHTML = '<i data-lucide="check" class="w-4 h-4 text-green-300"></i><span>Shipment Created</span>';
-                lucide.createIcons();
             } else {
-                btn.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
-                lucide.createIcons();
+                renderShippingModalUI();
                 alert(data.error || 'Failed to create Shiprocket shipment.');
             }
         })
         .catch(err => {
-            btn.disabled = false;
-            btn.innerHTML = '<i data-lucide="package-plus" class="w-4 h-4"></i><span>Create in Shiprocket</span>';
-            lucide.createIcons();
+            renderShippingModalUI();
             alert('Error creating shipment: ' + err);
         });
     }
 
     function checkCouriersAction() {
+        const btn = document.getElementById('btn-check-couriers');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><div class="w-3 h-3 border-2 border-brand-golddark border-t-transparent rounded-full animate-spin"></div><span>Checking couriers...</span></span>';
+        }
+
         const dynamicArea = document.getElementById('sm-dynamic-area');
         dynamicArea.classList.remove('hidden');
-        dynamicArea.innerHTML = '<div class="text-xs text-gray-500 py-3 text-center">Fetching available courier partners from Shiprocket...</div>';
+        dynamicArea.innerHTML = '<div class="text-xs text-gray-500 py-4 text-center flex items-center justify-center gap-2"><div class="w-3.5 h-3.5 border-2 border-brand-maroon border-t-transparent rounded-full animate-spin"></div><span>Querying available Shiprocket couriers &amp; live rates...</span></div>';
 
         fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/serviceability`)
         .then(res => res.json())
         .then(data => {
+            renderShippingModalUI();
             if (data.couriers && data.couriers.length > 0) {
                 let html = `
                     <div class="flex items-center justify-between pb-2 border-b border-gray-100">
                         <h4 class="font-bold text-xs text-gray-800">Available Couriers for PIN ${data.delivery_pincode} (${data.couriers.length} options)</h4>
                     </div>
-                    <div class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                    <div class="space-y-2.5 max-h-60 overflow-y-auto pr-1">
                 `;
                 data.couriers.forEach(c => {
                     html += `
-                        <div class="p-3 bg-amber-50/50 rounded-xl border border-amber-200/70 flex items-center justify-between text-xs">
-                            <div>
-                                <span class="font-bold text-gray-900 block">${c.courier_name}</span>
-                                <span class="text-gray-500 text-[11px]">Est: ${c.etd} &bull; Rating: ★ ${c.rating}</span>
+                        <div class="p-3.5 bg-amber-50/50 rounded-2xl border border-amber-200/80 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs shadow-2xs hover:border-amber-300 transition">
+                            <div class="space-y-1">
+                                <div class="flex items-center gap-2">
+                                    <span class="font-bold text-gray-900 text-sm">${c.courier_name}</span>
+                                    <span class="px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 text-[10px] font-bold">★ ${c.rating || '4.5'}</span>
+                                </div>
+                                <div class="text-gray-500 text-[11px] flex items-center gap-2.5">
+                                    <span>Est. Delivery: <strong class="text-gray-700">${c.etd || '2-3 Days'}</strong></span>
+                                    <span>&bull;</span>
+                                    <span>ID: <span class="font-mono text-gray-600">${c.courier_company_id}</span></span>
+                                </div>
                             </div>
-                            <div class="flex items-center gap-3">
-                                <span class="font-bold text-brand-maroon">₹${c.rate}</span>
-                                <button type="button" onclick="assignCourierAction(${c.courier_company_id}, '${c.courier_name.replace(/'/g, "\\'")}')" class="px-3 py-1 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-lg text-xs font-bold transition">
-                                    Assign &amp; AWB
+                            <div class="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-amber-200/60">
+                                <div class="text-left sm:text-right">
+                                    <span class="text-[10px] text-gray-400 uppercase font-bold block">Shipping Rate</span>
+                                    <span class="font-bold text-brand-maroon text-base font-serif">₹${c.rate}</span>
+                                </div>
+                                <button type="button" id="btn-assign-${c.courier_company_id}" onclick="assignCourierAction(${c.courier_company_id}, '${c.courier_name.replace(/'/g, "\\'")}')" class="px-4 py-2 bg-brand-maroon hover:bg-brand-maroondark text-white rounded-xl text-xs font-bold transition shadow-xs flex items-center gap-1.5 shrink-0">
+                                    <i data-lucide="check" class="w-3.5 h-3.5 text-brand-gold"></i>
+                                    <span>Select &amp; Assign Courier</span>
                                 </button>
                             </div>
                         </div>
@@ -782,12 +1041,14 @@
                 });
                 html += '</div>';
                 dynamicArea.innerHTML = html;
+                if (window.lucide) lucide.createIcons();
             } else {
-                dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">${data.error || 'No serviceable couriers found for this pincode.'}</div>`;
+                dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-3 text-center">${data.error || 'No serviceable couriers found for this pincode.'}</div>`;
             }
         })
         .catch(err => {
-            dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">Error checking couriers: ${err}</div>`;
+            renderShippingModalUI();
+            dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-3 text-center">Error checking couriers: ${err}</div>`;
         });
     }
 
@@ -795,6 +1056,12 @@
         if (!currentShippingOrder.shipmentId && !currentShippingOrder.srOrderId) {
             alert('Please create the Shiprocket shipment first before assigning courier.');
             return;
+        }
+
+        const assignBtn = document.getElementById(`btn-assign-${courierId}`);
+        if (assignBtn) {
+            assignBtn.disabled = true;
+            assignBtn.innerHTML = '<span class="inline-flex items-center gap-1"><div class="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></div><span>Assigning courier...</span></span>';
         }
 
         fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/assign-courier`, {
@@ -809,23 +1076,38 @@
                 currentShippingOrder.courier = data.courier_name;
                 currentShippingOrder.trackingUrl = data.tracking_url;
                 currentShippingOrder.status = 'AWB Assigned';
-                document.getElementById('sm-awb-code').innerText = data.awb_code;
-                document.getElementById('sm-courier-name').innerText = data.courier_name;
-                document.getElementById('sm-status').innerText = 'AWB Assigned';
-
+                renderShippingModalUI();
                 showToast('Courier Assigned', `AWB ${data.awb_code} generated for ${data.courier_name}`);
                 checkCouriersAction();
             } else {
+                if (assignBtn) {
+                    assignBtn.disabled = false;
+                    assignBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 text-brand-gold"></i><span>Select &amp; Assign Courier</span>';
+                    if (window.lucide) lucide.createIcons();
+                }
                 alert(data.error || 'Failed to assign courier.');
             }
         })
-        .catch(err => alert('Error assigning courier: ' + err));
+        .catch(err => {
+            if (assignBtn) {
+                assignBtn.disabled = false;
+                assignBtn.innerHTML = '<i data-lucide="check" class="w-3.5 h-3.5 text-brand-gold"></i><span>Select &amp; Assign Courier</span>';
+                if (window.lucide) lucide.createIcons();
+            }
+            alert('Error assigning courier: ' + err);
+        });
     }
 
     function schedulePickupAction() {
-        if (!currentShippingOrder.awb) {
+        if (!currentShippingOrder.awb || currentShippingOrder.awb === '-') {
             alert('Please assign a courier partner and generate an AWB first before requesting pickup.');
             return;
+        }
+
+        const btn = document.getElementById('btn-schedule-pickup');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><div class="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div><span>Scheduling pickup...</span></span>';
         }
 
         fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/pickup`, {
@@ -836,19 +1118,36 @@
         .then(data => {
             if (data.success) {
                 currentShippingOrder.status = 'Pickup Scheduled';
-                document.getElementById('sm-status').innerText = 'Pickup Scheduled';
+                currentShippingOrder.pickupScheduledAt = new Date().toISOString();
+                renderShippingModalUI();
                 showToast('Pickup Scheduled', data.message || 'Doorstep Satara pickup requested.');
             } else {
+                renderShippingModalUI();
                 alert(data.error || 'Failed to schedule pickup.');
             }
         })
-        .catch(err => alert('Error scheduling pickup: ' + err));
+        .catch(err => {
+            renderShippingModalUI();
+            alert('Error scheduling pickup: ' + err);
+        });
     }
 
     function downloadLabelAction() {
-        if (!currentShippingOrder.shipmentId && !currentShippingOrder.srOrderId) {
-            alert('Please create the shipment first.');
+        if (currentShippingOrder.labelUrl) {
+            window.open(currentShippingOrder.labelUrl, '_blank');
+            showToast('Shipping Label', 'Label opened in new tab.');
             return;
+        }
+
+        if (!currentShippingOrder.shipmentId && !currentShippingOrder.srOrderId) {
+            alert('Please create the shipment first before generating label.');
+            return;
+        }
+
+        const btn = document.getElementById('btn-download-label');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><div class="w-3 h-3 border-2 border-brand-maroon border-t-transparent rounded-full animate-spin"></div><span>Generating label...</span></span>';
         }
 
         fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/label`, {
@@ -858,13 +1157,59 @@
         .then(res => res.json())
         .then(data => {
             if (data.success && data.label_url) {
+                currentShippingOrder.labelUrl = data.label_url;
+                renderShippingModalUI();
                 window.open(data.label_url, '_blank');
-                showToast('Shipping Label', 'Label opened in new tab.');
+                showToast('Shipping Label Generated', 'Label opened in new tab.');
             } else {
+                renderShippingModalUI();
                 alert(data.error || 'Failed to generate shipping label.');
             }
         })
-        .catch(err => alert('Error generating label: ' + err));
+        .catch(err => {
+            renderShippingModalUI();
+            alert('Error generating label: ' + err);
+        });
+    }
+
+    function downloadInvoiceAction() {
+        if (currentShippingOrder.invoiceUrl) {
+            window.open(currentShippingOrder.invoiceUrl, '_blank');
+            showToast('Tax Invoice', 'Invoice opened in new tab.');
+            return;
+        }
+
+        if (!currentShippingOrder.srOrderId) {
+            alert('Shiprocket Order ID is missing. Please create shipment first.');
+            return;
+        }
+
+        const btn = document.getElementById('btn-download-invoice');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><div class="w-3 h-3 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin"></div><span>Generating invoice...</span></span>';
+        }
+
+        fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/invoice`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'}
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success && data.invoice_url) {
+                currentShippingOrder.invoiceUrl = data.invoice_url;
+                renderShippingModalUI();
+                window.open(data.invoice_url, '_blank');
+                showToast('Tax Invoice Generated', 'Invoice opened in new tab.');
+            } else {
+                renderShippingModalUI();
+                alert(data.error || 'Failed to generate tax invoice.');
+            }
+        })
+        .catch(err => {
+            renderShippingModalUI();
+            alert('Error generating invoice: ' + err);
+        });
     }
 
     function trackShipmentAction() {
@@ -873,46 +1218,81 @@
             return;
         }
 
+        const btn = document.getElementById('btn-live-track');
+        if (btn) {
+            btn.disabled = true;
+            btn.innerHTML = '<span class="inline-flex items-center gap-1.5"><div class="w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div><span>Fetching tracking...</span></span>';
+        }
+
         const dynamicArea = document.getElementById('sm-dynamic-area');
         dynamicArea.classList.remove('hidden');
-        dynamicArea.innerHTML = '<div class="text-xs text-gray-500 py-3 text-center">Fetching live tracking scan from Shiprocket...</div>';
+        dynamicArea.innerHTML = '<div class="text-xs text-gray-500 py-4 text-center flex items-center justify-center gap-2"><div class="w-3.5 h-3.5 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin"></div><span>Fetching live tracking checkpoints from Shiprocket...</span></div>';
 
         fetch(`/api/admin/orders/${currentShippingOrder.id}/shipping/track`)
         .then(res => res.json())
         .then(data => {
+            renderShippingModalUI();
             if (data.success && data.tracking) {
                 const t = data.tracking;
+                if (t.current_status) {
+                    currentShippingOrder.status = t.current_status;
+                    renderShippingModalUI();
+                }
                 let html = `
                     <div class="space-y-3">
                         <div class="flex items-center justify-between pb-2 border-b border-gray-100">
                             <div>
-                                <span class="text-xs font-bold text-gray-900 block">${t.courier_name} &bull; AWB: ${t.awb_code}</span>
-                                <span class="text-[11px] text-gray-500">Status: <strong class="text-indigo-700">${t.current_status}</strong></span>
+                                <span class="text-xs font-bold text-gray-900 block">${t.courier_name || currentShippingOrder.courier || 'Courier'} &bull; AWB: ${t.awb_code || currentShippingOrder.awb}</span>
+                                <span class="text-[11px] text-gray-500">Status: <strong class="text-indigo-700">${t.current_status || 'In Transit'}</strong></span>
                             </div>
-                            ${t.tracking_url ? `<a href="${t.tracking_url}" target="_blank" class="px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold">Open Public Tracker &rarr;</a>` : ''}
+                            ${t.tracking_url ? `<a href="${t.tracking_url}" target="_blank" class="px-3 py-1 bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 rounded-lg text-xs font-bold flex items-center gap-1">Open Public Tracker &rarr;</a>` : ''}
                         </div>
                         <div class="space-y-2 max-h-52 overflow-y-auto">
                 `;
                 if (t.scans && t.scans.length > 0) {
                     t.scans.forEach(s => {
                         html += `
-                            <div class="p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs">
-                                <span class="font-bold text-gray-800 block">${s.activity || s.status || 'Checkpoint'}</span>
-                                <span class="text-[10px] text-gray-500">${s.date || ''} &bull; ${s.location || ''}</span>
+                            <div class="p-2.5 bg-gray-50 rounded-xl border border-gray-200 text-xs flex items-center justify-between">
+                                <div>
+                                    <span class="font-bold text-gray-800 block">${s.activity || s.status || 'Checkpoint'}</span>
+                                    <span class="text-[10px] text-gray-500">${s.location || ''}</span>
+                                </div>
+                                <span class="text-[10px] text-gray-400 font-mono">${s.date || ''}</span>
                             </div>
                         `;
                     });
                 } else {
-                    html += `<div class="text-xs text-gray-500 py-2">No transit activity logged yet by ${t.courier_name}.</div>`;
+                    html += `<div class="text-xs text-gray-500 py-3 text-center">No transit checkpoints logged yet by carrier partner.</div>`;
                 }
                 html += '</div></div>';
                 dynamicArea.innerHTML = html;
             } else {
-                dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">${data.error || 'Tracking details currently unavailable.'}</div>`;
+                dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-3 text-center">${data.error || 'Tracking details currently unavailable.'}</div>`;
             }
         })
         .catch(err => {
-            dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-2">Error tracking shipment: ${err}</div>`;
+            renderShippingModalUI();
+            dynamicArea.innerHTML = `<div class="text-xs text-red-600 py-3 text-center">Error tracking shipment: ${err}</div>`;
+        });
+    }
+
+    function copyAWBFromAdmin() {
+        if (!currentShippingOrder.awb || currentShippingOrder.awb === '-') return;
+        navigator.clipboard.writeText(currentShippingOrder.awb).then(() => {
+            const copyText = document.getElementById('sm-copy-awb-text');
+            if (copyText) {
+                copyText.innerText = 'Copied! ✓';
+                setTimeout(() => { copyText.innerText = 'Copy'; }, 2000);
+            }
+            showToast('AWB Copied', `Copied AWB ${currentShippingOrder.awb} to clipboard.`);
+        }).catch(() => {
+            const temp = document.createElement('input');
+            temp.value = currentShippingOrder.awb;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            document.body.removeChild(temp);
+            showToast('AWB Copied', `Copied AWB ${currentShippingOrder.awb} to clipboard.`);
         });
     }
 </script>
