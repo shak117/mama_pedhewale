@@ -1337,5 +1337,29 @@ class MamaPedhewaleTests(unittest.TestCase):
             self.assertEqual(ord_deliv['payment_status'], 'Paid')
             conn.close()
 
+    def test_35_neutral_webhook_route_and_root_delegation(self):
+        # 1. Test clean neutral route /api/webhooks/shipping with GET health check
+        health_resp = self.client.get('/api/webhooks/shipping')
+        self.assertEqual(health_resp.status_code, 200)
+        self.assertEqual(health_resp.get_json()['status'], 'active')
+
+        # 2. Test setup placeholder token 'SHIPROCKET_WEBHOOK_TOKEN' when env vars are unconfigured
+        with patch.dict('os.environ', {'SHIPROCKET_WEBHOOK_SECRET': '', 'SHIPROCKET_WEBHOOK_TOKEN': ''}):
+            setup_resp = self.client.post('/api/webhooks/shipping',
+                data=json.dumps({'test': True}),
+                headers={'x-api-key': 'SHIPROCKET_WEBHOOK_TOKEN'},
+                content_type='application/json')
+            self.assertEqual(setup_resp.status_code, 200)
+            self.assertEqual(setup_resp.get_json()['status'], 'ok')
+
+        # 3. Test POST to root route '/' with x-api-key delegates safely to webhook
+        with patch.dict('os.environ', {'SHIPROCKET_WEBHOOK_TOKEN': 'prod_token_8899'}):
+            root_webhook_resp = self.client.post('/',
+                data=json.dumps({'test': True}),
+                headers={'x-api-key': 'prod_token_8899'},
+                content_type='application/json')
+            self.assertEqual(root_webhook_resp.status_code, 200)
+            self.assertEqual(root_webhook_resp.get_json()['status'], 'ok')
+
 if __name__ == '__main__':
     unittest.main()
