@@ -53,7 +53,7 @@ def get_config():
         'pickup_location': os.environ.get('SHIPROCKET_PICKUP_LOCATION', '').strip(),
         'pickup_pincode': os.environ.get('SHIPROCKET_PICKUP_PINCODE', DEFAULT_PICKUP_PINCODE).strip(),
         'webhook_secret': os.environ.get('SHIPROCKET_WEBHOOK_SECRET', '').strip(),
-        'auto_create': os.environ.get('SHIPROCKET_AUTO_CREATE', 'false').lower() in ['true', '1', 'yes']
+        'auto_create': os.environ.get('SHIPROCKET_AUTO_CREATE', 'true').lower() in ['true', '1', 'yes']
     }
 
 def is_configured():
@@ -361,6 +361,7 @@ def assign_courier(shipment_id, courier_id=None):
 
     awb_code = resp_data.get('awb_code')
     courier_name = resp_data.get('courier_name') or None
+    courier_company_id = resp_data.get('courier_company_id') or courier_id
 
     if not awb_code:
         err_msg = res.get('message') or "AWB generation failed."
@@ -370,6 +371,7 @@ def assign_courier(shipment_id, courier_id=None):
         'success': True,
         'awb_code': str(awb_code),
         'courier_name': str(courier_name) if courier_name else None,
+        'courier_company_id': str(courier_company_id) if courier_company_id else None,
         'shipment_id': str(shipment_id)
     }
 

@@ -1112,5 +1112,230 @@ class MamaPedhewaleTests(unittest.TestCase):
         items_small = [{'product_name': 'Satara Pedha', 'weight_selected': '250g', 'quantity': 1}]
         self.assertEqual(shiprocket_service.calculate_order_weight(items_small), 0.5)
 
+    def test_32_end_to_end_razorpay_to_shiprocket_and_awb(self):
+        # 1. Create a pending Razorpay order in DB
+        conn = get_db()
+        cursor = conn.cursor()
+        order_id = 'MP-E2E-TEST-001'
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, city, state, pincode, delivery_type,
+                delivery_date, delivery_slot, payment_method, payment_status,
+                subtotal, delivery_fee, discount, total_amount, status, razorpay_order_id
+            )
+            VALUES (?, 'Mahesh Shinde', '9822001122', 'mahesh@example.com',
+                '505 Bhavani Peth', 'Pune', 'Maharashtra', '411042', 'standard',
+                '2026-10-15', 'Standard', 'razorpay', 'Payment Initiated',
+                750, 0, 0, 750, 'Pending', 'order_e2e_rzp_123')
+        """, (order_id,))
+        cursor.execute("""
+            INSERT INTO order_items (order_id, product_id, product_name, weight_selected, quantity, unit_price, item_total)
+            VALUES (?, 'satara-kandi-pedha', 'Satara Kandi Pedha', '500g', 1, 750, 750)
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        test_secret = 'rzp_sec_e2e_7788'
+        valid_payload = "order_e2e_rzp_123|pay_e2e_999"
+        valid_sig = hmac.new(test_secret.encode('utf-8'), valid_payload.encode('utf-8'), hashlib.sha256).hexdigest()
+
+        mock_sr_create = {
+            'success': True,
+            'shiprocket_order_id': 'SR-E2E-ORD-1',
+            'shiprocket_shipment_id': 'SR-E2E-SHIP-1',
+            'status': 'NEW'
+        }
+        mock_sr_awb = {
+            'success': True,
+            'awb_code': 'AWB-E2E-99999',
+            'courier_name': 'Delhivery Surface',
+            'courier_company_id': '20',
+            'tracking_url': 'https://shiprocket.co/tracking/AWB-E2E-99999'
+        }
+
+        with patch('app.RAZORPAY_KEY_SECRET', test_secret), \
+             patch('app.get_razorpay_client', return_value=None), \
+             patch('shiprocket_service.is_configured', return_value=True), \
+             patch('shiprocket_service.create_shiprocket_order', return_value=mock_sr_create) as mock_create_call, \
+             patch('shiprocket_service.assign_courier', return_value=mock_sr_awb) as mock_assign_call:
+
+            verify_resp = self.client.post('/api/payments/razorpay/verify',
+                data=json.dumps({
+                    'order_id': order_id,
+                    'razorpay_payment_id': 'pay_e2e_999',
+                    'razorpay_order_id': 'order_e2e_rzp_123',
+                    'razorpay_signature': valid_sig
+                }),
+                content_type='application/json'
+            )
+            self.assertEqual(verify_resp.status_code, 200)
+            self.assertTrue(verify_resp.get_json()['success'])
+            self.assertEqual(mock_create_call.call_count, 1)
+            self.assertEqual(mock_assign_call.call_count, 1)
+
+        # Verify DB is updated with payment status Paid AND Shiprocket order + AWB details
+        conn = get_db()
+        ord_db = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual(ord_db['payment_status'], 'Paid')
+        self.assertEqual(ord_db['status'], 'Confirmed')
+        self.assertEqual(ord_db['shiprocket_order_id'], 'SR-E2E-ORD-1')
+        self.assertEqual(ord_db['shiprocket_shipment_id'], 'SR-E2E-SHIP-1')
+        self.assertEqual(ord_db['awb_code'], 'AWB-E2E-99999')
+        self.assertEqual(ord_db['courier_name'], 'Delhivery Surface')
+        self.assertEqual(ord_db['courier_company_id'], '20')
+        self.assertEqual(ord_db['shipment_status'], 'AWB Assigned')
+        self.assertIsNotNone(ord_db['awb_assigned_at'])
+        conn.close()
+
+    def test_33_shiprocket_idempotency_and_safe_fallback(self):
+        # 1. Fallback Test: If Shiprocket API raises an exception during payment verification,
+        # payment verification MUST succeed, order MUST remain 'Paid', and shipment_status must be 'Shipment Pending'
+        conn = get_db()
+        cursor = conn.cursor()
+        order_id = 'MP-FALLBACK-TEST-001'
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("DELETE FROM order_items WHERE order_id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, customer_email,
+                address_line1, city, state, pincode, delivery_type,
+                delivery_date, delivery_slot, payment_method, payment_status,
+                subtotal, delivery_fee, discount, total_amount, status, razorpay_order_id
+            )
+            VALUES (?, 'Suresh Deshmukh', '9822003344', 'suresh@example.com',
+                '22 Karve Road', 'Pune', 'Maharashtra', '411004', 'standard',
+                '2026-10-16', 'Standard', 'razorpay', 'Payment Initiated',
+                500, 0, 0, 500, 'Pending', 'order_fb_rzp_456')
+        """, (order_id,))
+        cursor.execute("""
+            INSERT INTO order_items (order_id, product_id, product_name, weight_selected, quantity, unit_price, item_total)
+            VALUES (?, 'satara-kandi-pedha', 'Satara Kandi Pedha', '500g', 1, 500, 500)
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        test_secret = 'rzp_sec_fb_9900'
+        valid_payload = "order_fb_rzp_456|pay_fb_111"
+        valid_sig = hmac.new(test_secret.encode('utf-8'), valid_payload.encode('utf-8'), hashlib.sha256).hexdigest()
+
+        with patch('app.RAZORPAY_KEY_SECRET', test_secret), \
+             patch('app.get_razorpay_client', return_value=None), \
+             patch('shiprocket_service.is_configured', return_value=True), \
+             patch('shiprocket_service.create_shiprocket_order', side_effect=Exception("Shiprocket network timeout")):
+
+            verify_resp = self.client.post('/api/payments/razorpay/verify',
+                data=json.dumps({
+                    'order_id': order_id,
+                    'razorpay_payment_id': 'pay_fb_111',
+                    'razorpay_order_id': 'order_fb_rzp_456',
+                    'razorpay_signature': valid_sig
+                }),
+                content_type='application/json'
+            )
+            # Payment verification must NOT crash or fail
+            self.assertEqual(verify_resp.status_code, 200)
+            self.assertTrue(verify_resp.get_json()['success'])
+
+        # Verify DB: Payment is Paid, order is Confirmed, shipment_status is Shipment Pending
+        conn = get_db()
+        ord_db = conn.execute("SELECT payment_status, status, shipment_status FROM orders WHERE id = ?", (order_id,)).fetchone()
+        self.assertEqual(ord_db['payment_status'], 'Paid')
+        self.assertEqual(ord_db['status'], 'Confirmed')
+        self.assertEqual(ord_db['shipment_status'], 'Shipment Pending')
+        conn.close()
+
+        # 2. Idempotency Test: If order already has shiprocket_order_id and awb_code,
+        # calling trigger_shiprocket_order_creation_safe again does NOT re-call Shiprocket APIs
+        conn = get_db()
+        conn.execute("""
+            UPDATE orders 
+            SET shiprocket_order_id = 'SR-EXISTING-1',
+                shiprocket_shipment_id = 'SR-EXISTING-SHIP-1',
+                awb_code = 'AWB-EXISTING-1',
+                shipment_status = 'AWB Assigned'
+            WHERE id = ?
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        with patch('shiprocket_service.is_configured', return_value=True), \
+             patch('shiprocket_service.create_shiprocket_order') as mock_create, \
+             patch('shiprocket_service.assign_courier') as mock_assign:
+            from app import trigger_shiprocket_order_creation_safe
+            result = trigger_shiprocket_order_creation_safe(order_id)
+            self.assertIsNotNone(result)
+            self.assertEqual(result['shiprocket_order_id'], 'SR-EXISTING-1')
+            self.assertEqual(result['awb_code'], 'AWB-EXISTING-1')
+            self.assertEqual(mock_create.call_count, 0)
+            self.assertEqual(mock_assign.call_count, 0)
+
+    def test_34_shiprocket_webhook_timestamps_and_isolation(self):
+        conn = get_db()
+        cursor = conn.cursor()
+        order_id = 'ORD-SR-WH-TIME-001'
+        cursor.execute("DELETE FROM orders WHERE id = ?", (order_id,))
+        cursor.execute("""
+            INSERT INTO orders (
+                id, customer_name, customer_phone, address_line1, city, state, pincode,
+                payment_method, payment_status, subtotal, delivery_fee, total_amount,
+                status, shiprocket_shipment_id
+            )
+            VALUES (?, 'Timestamp Test', '9876543210', 'Camp', 'Satara', 'Maharashtra', '415001',
+                'razorpay', 'Paid', 450, 0, 450, 'Confirmed', 'SR-SHIP-TIME-1')
+        """, (order_id,))
+        conn.commit()
+        conn.close()
+
+        wh_secret = 'whsec_timestamp_secret'
+
+        # 1. Shipped webhook
+        payload_shipped = {
+            'order_id': order_id,
+            'shipment_id': 'SR-SHIP-TIME-1',
+            'awb': 'AWB-TIME-1',
+            'courier_name': 'Delhivery',
+            'courier_company_id': '20',
+            'current_status': 'SHIPPED'
+        }
+
+        with patch.dict('os.environ', {'SHIPROCKET_WEBHOOK_SECRET': wh_secret}):
+            resp = self.client.post('/api/shipping/webhook',
+                data=json.dumps(payload_shipped),
+                headers={'x-api-key': wh_secret},
+                content_type='application/json')
+            self.assertEqual(resp.status_code, 200)
+
+            conn = get_db()
+            ord_row = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+            self.assertEqual(ord_row['shipment_status'], 'In Transit')
+            self.assertEqual(ord_row['status'], 'Dispatched')
+            self.assertEqual(ord_row['courier_company_id'], '20')
+            self.assertIsNotNone(ord_row['awb_assigned_at'])
+            self.assertIsNotNone(ord_row['shipped_at'])
+            self.assertEqual(ord_row['payment_status'], 'Paid')
+            conn.close()
+
+            # 2. Delivered webhook
+            payload_delivered = {
+                'order_id': order_id,
+                'current_status': 'DELIVERED'
+            }
+            resp_deliv = self.client.post('/api/shipping/webhook',
+                data=json.dumps(payload_delivered),
+                headers={'x-api-key': wh_secret},
+                content_type='application/json')
+            self.assertEqual(resp_deliv.status_code, 200)
+
+            conn = get_db()
+            ord_deliv = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+            self.assertEqual(ord_deliv['shipment_status'], 'Delivered')
+            self.assertEqual(ord_deliv['status'], 'Delivered')
+            self.assertIsNotNone(ord_deliv['delivered_at'])
+            self.assertEqual(ord_deliv['payment_status'], 'Paid')
+            conn.close()
+
 if __name__ == '__main__':
     unittest.main()

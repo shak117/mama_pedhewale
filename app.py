@@ -56,18 +56,29 @@ def generate_order_id():
 
 def trigger_shiprocket_order_creation_safe(order_id):
     """
-    Safely triggers Shiprocket order creation for eligible orders (Paid or COD).
+    Safely triggers end-to-end Shiprocket order creation and AWB assignment for eligible orders (Paid or COD).
+    Separates financial payment status (Paid) from logistics shipping status.
     Never breaks customer checkout or payment verification if Shiprocket fails or is unconfigured.
     Returns: dict with result or None if skipped/failed.
     """
     try:
         import shiprocket_service
         if not shiprocket_service.is_configured():
-            app.logger.info(f"Shiprocket not configured. Skipping auto-shipment for order {order_id}")
+            app.logger.info(f"Shiprocket credentials not configured. Leaving order {order_id} as Shipment Pending.")
+            conn = get_db()
+            try:
+                conn.execute("""
+                    UPDATE orders 
+                    SET shipment_status = 'Shipment Pending' 
+                    WHERE id = ? AND (shipment_status IS NULL OR shipment_status = 'Pending')
+                """, (order_id,))
+                conn.commit()
+            finally:
+                conn.close()
             return None
 
         cfg = shiprocket_service.get_config()
-        if not cfg.get('auto_create', False):
+        if not cfg.get('auto_create', True):
             app.logger.info(f"Shiprocket auto_create is disabled. Order {order_id} can be shipped via Admin panel.")
             return None
 
@@ -83,35 +94,93 @@ def trigger_shiprocket_order_creation_safe(order_id):
                 app.logger.info(f"Order {order_id} is not eligible for shipment yet (Method: {pay_method}, Status: {pay_status}).")
                 return None
 
-            if order['shiprocket_order_id']:
-                app.logger.info(f"Order {order_id} already has Shiprocket Order ID {order['shiprocket_order_id']}.")
-                return None
+            sr_order_id = order['shiprocket_order_id']
+            sr_shipment_id = order['shiprocket_shipment_id']
+            awb_code = order['awb_code']
+
+            # If already created and already has AWB, completely idempotent exit
+            if sr_order_id and sr_shipment_id and awb_code:
+                app.logger.info(f"Order {order_id} already has Shiprocket Order ID {sr_order_id} and AWB {awb_code}.")
+                return {
+                    'success': True,
+                    'shiprocket_order_id': sr_order_id,
+                    'shiprocket_shipment_id': sr_shipment_id,
+                    'awb_code': awb_code
+                }
 
             items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
             order_dict = dict(order)
             items_list = [dict(it) for it in items]
 
-            res = shiprocket_service.create_shiprocket_order(order_dict, items_list)
-            if res.get('success'):
-                sr_order_id = str(res.get('shiprocket_order_id'))
-                sr_shipment_id = str(res.get('shiprocket_shipment_id'))
-                sr_status = res.get('status', 'Created')
-                cursor = conn.cursor()
-                cursor.execute("""
-                    UPDATE orders 
-                    SET shiprocket_order_id = ?,
-                        shiprocket_shipment_id = ?,
-                        shipment_status = ?,
-                        shiprocket_created_at = datetime('now', 'localtime')
-                    WHERE id = ?
-                """, (sr_order_id, sr_shipment_id, sr_status, order_id))
-                conn.commit()
-                app.logger.info(f"Shiprocket shipment created for order {order_id}: SR Order {sr_order_id}, Shipment {sr_shipment_id}")
-                return res
+            # Step 1: Create Shiprocket order if not already created
+            if not sr_order_id or not sr_shipment_id:
+                try:
+                    res = shiprocket_service.create_shiprocket_order(order_dict, items_list)
+                    if res.get('success'):
+                        sr_order_id = str(res.get('shiprocket_order_id'))
+                        sr_shipment_id = str(res.get('shiprocket_shipment_id'))
+                        sr_status = 'Shipment Created'
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE orders 
+                            SET shiprocket_order_id = ?,
+                                shiprocket_shipment_id = ?,
+                                shipment_status = ?,
+                                shiprocket_created_at = datetime('now', 'localtime')
+                            WHERE id = ?
+                        """, (sr_order_id, sr_shipment_id, sr_status, order_id))
+                        conn.commit()
+                        app.logger.info(f"Shiprocket shipment created for order {order_id}: SR Order {sr_order_id}, Shipment {sr_shipment_id}")
+                    else:
+                        cursor = conn.cursor()
+                        cursor.execute("UPDATE orders SET shipment_status = 'Shipment Pending' WHERE id = ?", (order_id,))
+                        conn.commit()
+                        return None
+                except Exception as create_err:
+                    app.logger.error(f"Failed to create Shiprocket order for {order_id}: {create_err}")
+                    cursor = conn.cursor()
+                    cursor.execute("UPDATE orders SET shipment_status = 'Shipment Pending' WHERE id = ?", (order_id,))
+                    conn.commit()
+                    return None
+
+            # Step 2: Request AWB and Courier Assignment if shipment exists and AWB is not yet assigned
+            if sr_shipment_id and not awb_code:
+                try:
+                    app.logger.info(f"Requesting AWB assignment for order {order_id}, shipment {sr_shipment_id}...")
+                    awb_res = shiprocket_service.assign_courier(sr_shipment_id)
+                    if awb_res.get('success') and awb_res.get('awb_code'):
+                        awb_code = str(awb_res['awb_code'])
+                        courier_name = awb_res.get('courier_name')
+                        courier_comp_id = awb_res.get('courier_company_id')
+                        tracking_url = f"https://shiprocket.co/tracking/{awb_code}"
+                        cursor = conn.cursor()
+                        cursor.execute("""
+                            UPDATE orders 
+                            SET awb_code = ?,
+                                courier_name = COALESCE(?, courier_name),
+                                courier_company_id = COALESCE(?, courier_company_id),
+                                tracking_number = ?,
+                                tracking_url = ?,
+                                shipment_status = 'AWB Assigned',
+                                awb_assigned_at = datetime('now', 'localtime'),
+                                shiprocket_updated_at = datetime('now', 'localtime')
+                            WHERE id = ?
+                        """, (awb_code, courier_name, courier_comp_id, awb_code, tracking_url, order_id))
+                        conn.commit()
+                        app.logger.info(f"AWB {awb_code} assigned to order {order_id} with courier {courier_name}")
+                except Exception as awb_err:
+                    app.logger.warning(f"AWB assignment deferred/pending for order {order_id}: {awb_err}")
+
+            return {
+                'success': True,
+                'shiprocket_order_id': sr_order_id,
+                'shiprocket_shipment_id': sr_shipment_id,
+                'awb_code': awb_code
+            }
         finally:
             conn.close()
     except Exception as e:
-        app.logger.error(f"Failed to auto-create Shiprocket order for {order_id}: {e}")
+        app.logger.error(f"Error in trigger_shiprocket_order_creation_safe for {order_id}: {e}")
         return None
 
 # Context processor for global data (categories, cart helpers)
@@ -1195,17 +1264,48 @@ def api_admin_shipping_create(order_id):
             'error': f"Shipment cannot be created for unpaid order (Method: {pay_method}, Status: {pay_status})."
         }), 400
 
-    # Idempotency check
+    # Idempotency & Retry check
     if order['shiprocket_order_id']:
+        sr_order_id = order['shiprocket_order_id']
+        sr_shipment_id = order['shiprocket_shipment_id']
+        awb_code = order['awb_code']
+        courier_name = order['courier_name']
+
+        # If shipment exists but AWB is missing, retry AWB assignment
+        if not awb_code and sr_shipment_id:
+            try:
+                awb_res = shiprocket_service.assign_courier(sr_shipment_id)
+                if awb_res.get('success') and awb_res.get('awb_code'):
+                    awb_code = str(awb_res['awb_code'])
+                    courier_name = awb_res.get('courier_name')
+                    courier_comp_id = awb_res.get('courier_company_id')
+                    tracking_url = f"https://shiprocket.co/tracking/{awb_code}"
+                    cursor = conn.cursor()
+                    cursor.execute("""
+                        UPDATE orders 
+                        SET awb_code = ?,
+                            courier_name = COALESCE(?, courier_name),
+                            courier_company_id = COALESCE(?, courier_company_id),
+                            tracking_number = ?,
+                            tracking_url = ?,
+                            shipment_status = 'AWB Assigned',
+                            awb_assigned_at = datetime('now', 'localtime'),
+                            shiprocket_updated_at = datetime('now', 'localtime')
+                        WHERE id = ?
+                    """, (awb_code, courier_name, courier_comp_id, awb_code, tracking_url, order_id))
+                    conn.commit()
+            except Exception as e:
+                app.logger.warning(f"AWB assignment deferred during admin retry for {order_id}: {e}")
+
         conn.close()
         return jsonify({
             'success': True,
-            'message': 'Shiprocket shipment order already exists.',
-            'shiprocket_order_id': order['shiprocket_order_id'],
-            'shiprocket_shipment_id': order['shiprocket_shipment_id'],
-            'shipment_status': order['shipment_status'] or 'Created',
-            'awb_code': order['awb_code'],
-            'courier_name': order['courier_name']
+            'message': 'Shiprocket shipment order exists.' + (f' AWB {awb_code} generated.' if awb_code else ''),
+            'shiprocket_order_id': sr_order_id,
+            'shiprocket_shipment_id': sr_shipment_id,
+            'shipment_status': 'AWB Assigned' if awb_code else (order['shipment_status'] or 'Shipment Created'),
+            'awb_code': awb_code,
+            'courier_name': courier_name
         })
 
     items = conn.execute("SELECT * FROM order_items WHERE order_id = ?", (order_id,)).fetchall()
@@ -1216,26 +1316,69 @@ def api_admin_shipping_create(order_id):
         res = shiprocket_service.create_shiprocket_order(order_dict, items_list)
         sr_order_id = str(res.get('shiprocket_order_id'))
         sr_shipment_id = str(res.get('shiprocket_shipment_id'))
-        status = res.get('status', 'Created')
+        status = 'Shipment Created'
+        awb_code = None
+        courier_name = None
 
-        cursor = conn.cursor()
-        cursor.execute("""
-            UPDATE orders 
-            SET shiprocket_order_id = ?,
-                shiprocket_shipment_id = ?,
-                shipment_status = ?,
-                shiprocket_created_at = datetime('now', 'localtime')
-            WHERE id = ?
-        """, (sr_order_id, sr_shipment_id, status, order_id))
-        conn.commit()
+        # Attempt immediate courier AWB assignment
+        try:
+            awb_res = shiprocket_service.assign_courier(sr_shipment_id)
+            if awb_res.get('success') and awb_res.get('awb_code'):
+                awb_code = str(awb_res['awb_code'])
+                courier_name = awb_res.get('courier_name')
+                courier_comp_id = awb_res.get('courier_company_id')
+                tracking_url = f"https://shiprocket.co/tracking/{awb_code}"
+                status = 'AWB Assigned'
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE orders 
+                    SET shiprocket_order_id = ?,
+                        shiprocket_shipment_id = ?,
+                        shipment_status = ?,
+                        awb_code = ?,
+                        courier_name = ?,
+                        courier_company_id = ?,
+                        tracking_number = ?,
+                        tracking_url = ?,
+                        awb_assigned_at = datetime('now', 'localtime'),
+                        shiprocket_created_at = datetime('now', 'localtime'),
+                        shiprocket_updated_at = datetime('now', 'localtime')
+                    WHERE id = ?
+                """, (sr_order_id, sr_shipment_id, status, awb_code, courier_name, courier_comp_id, awb_code, tracking_url, order_id))
+                conn.commit()
+            else:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    UPDATE orders 
+                    SET shiprocket_order_id = ?,
+                        shiprocket_shipment_id = ?,
+                        shipment_status = ?,
+                        shiprocket_created_at = datetime('now', 'localtime')
+                    WHERE id = ?
+                """, (sr_order_id, sr_shipment_id, status, order_id))
+                conn.commit()
+        except Exception:
+            cursor = conn.cursor()
+            cursor.execute("""
+                UPDATE orders 
+                SET shiprocket_order_id = ?,
+                    shiprocket_shipment_id = ?,
+                    shipment_status = ?,
+                    shiprocket_created_at = datetime('now', 'localtime')
+                WHERE id = ?
+            """, (sr_order_id, sr_shipment_id, status, order_id))
+            conn.commit()
+
         conn.close()
 
         return jsonify({
             'success': True,
-            'message': f"Shipment created in Shiprocket (Order #{sr_order_id})",
+            'message': f"Shipment created in Shiprocket (Order #{sr_order_id})" + (f" with AWB {awb_code}" if awb_code else ""),
             'shiprocket_order_id': sr_order_id,
             'shiprocket_shipment_id': sr_shipment_id,
-            'shipment_status': status
+            'shipment_status': status,
+            'awb_code': awb_code,
+            'courier_name': courier_name
         })
     except shiprocket_service.ShiprocketError as e:
         conn.close()
@@ -1315,17 +1458,20 @@ def api_admin_shipping_assign_courier(order_id):
         courier_name = res['courier_name']
         tracking_url = f"https://shiprocket.co/tracking/{awb_code}"
 
+        courier_comp_id = res.get('courier_company_id')
         cursor = conn.cursor()
         cursor.execute("""
             UPDATE orders 
             SET awb_code = ?,
                 courier_name = ?,
+                courier_company_id = COALESCE(?, courier_company_id),
                 tracking_number = ?,
                 tracking_url = ?,
                 shipment_status = 'AWB Assigned',
+                awb_assigned_at = COALESCE(awb_assigned_at, datetime('now', 'localtime')),
                 shiprocket_updated_at = datetime('now', 'localtime')
             WHERE id = ?
-        """, (awb_code, courier_name, awb_code, tracking_url, order_id))
+        """, (awb_code, courier_name, courier_comp_id, awb_code, tracking_url, order_id))
         conn.commit()
         conn.close()
 
@@ -1625,6 +1771,7 @@ def api_shipping_webhook():
     sr_shipment_id = str(payload.get('shipment_id') or '')
     awb_code = str(payload.get('awb') or payload.get('awb_code') or '')
     courier_name = payload.get('courier_name')
+    courier_company_id = str(payload.get('courier_company_id') or payload.get('courier_id') or '').strip()
     raw_status = str(payload.get('current_status') or payload.get('status') or '').strip()
 
     conn = get_db()
@@ -1669,8 +1816,13 @@ def api_shipping_webhook():
             shipment_status = COALESCE(?, shipment_status),
             awb_code = COALESCE(NULLIF(?, ''), awb_code),
             courier_name = COALESCE(NULLIF(?, ''), courier_name),
+            courier_company_id = COALESCE(NULLIF(?, ''), courier_company_id),
             tracking_number = COALESCE(NULLIF(?, ''), tracking_number),
             tracking_url = COALESCE(?, tracking_url),
+            awb_assigned_at = CASE WHEN NULLIF(?, '') IS NOT NULL THEN COALESCE(awb_assigned_at, datetime('now', 'localtime')) ELSE awb_assigned_at END,
+            shipped_at = CASE WHEN ? IN ('Dispatched', 'Shipped', 'In Transit') OR ? IN ('Shipped', 'In Transit') THEN COALESCE(shipped_at, datetime('now', 'localtime')) ELSE shipped_at END,
+            dispatched_at = CASE WHEN ? IN ('Dispatched', 'Shipped', 'In Transit') OR ? IN ('Shipped', 'In Transit') THEN COALESCE(dispatched_at, datetime('now', 'localtime')) ELSE dispatched_at END,
+            delivered_at = CASE WHEN ? = 'Delivered' OR ? = 'Delivered' THEN COALESCE(delivered_at, datetime('now', 'localtime')) ELSE delivered_at END,
             shiprocket_updated_at = datetime('now', 'localtime')
         WHERE id = ?
     """, (
@@ -1679,8 +1831,13 @@ def api_shipping_webhook():
         normalized_shipment_status or order['shipment_status'],
         awb_code,
         courier_name,
+        courier_company_id,
         awb_code,
         tracking_url,
+        awb_code,
+        new_order_status, normalized_shipment_status,
+        new_order_status, normalized_shipment_status,
+        new_order_status, normalized_shipment_status,
         order['id']
     ))
     conn.commit()

@@ -220,11 +220,15 @@ def init_db():
         ("shiprocket_shipment_id", "TEXT"),
         ("awb_code", "TEXT"),
         ("courier_name", "TEXT"),
+        ("courier_company_id", "TEXT"),
         ("shipment_status", "TEXT DEFAULT 'Pending'"),
         ("tracking_url", "TEXT"),
         ("label_url", "TEXT"),
         ("invoice_url", "TEXT"),
         ("pickup_scheduled_at", "TIMESTAMP"),
+        ("awb_assigned_at", "TIMESTAMP"),
+        ("shipped_at", "TIMESTAMP"),
+        ("delivered_at", "TIMESTAMP"),
         ("shiprocket_created_at", "TIMESTAMP"),
         ("shiprocket_updated_at", "TIMESTAMP")
     ]
@@ -272,6 +276,7 @@ def init_db():
                 payment_details TEXT,
                 tracking_number TEXT,
                 courier_name TEXT,
+                courier_company_id TEXT,
                 dispatched_at TIMESTAMP,
                 shiprocket_order_id TEXT,
                 shiprocket_shipment_id TEXT,
@@ -281,6 +286,9 @@ def init_db():
                 label_url TEXT,
                 invoice_url TEXT,
                 pickup_scheduled_at TIMESTAMP,
+                awb_assigned_at TIMESTAMP,
+                shipped_at TIMESTAMP,
+                delivered_at TIMESTAMP,
                 shiprocket_created_at TIMESTAMP,
                 shiprocket_updated_at TIMESTAMP,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
