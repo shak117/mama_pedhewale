@@ -15,9 +15,17 @@ logger = logging.getLogger(__name__)
 
 # Configurable constants & defaults
 DEFAULT_BASE_URL = "https://apiv2.shiprocket.in/v1/external"
-DEFAULT_PICKUP_LOCATION = "Primary"
 DEFAULT_SWEET_HSN = "21069099"  # HSN Code for traditional Indian sweets/mithai
 TOKEN_EXPIRY_BUFFER = 3600       # Re-authenticate 1 hour before nominal expiry
+DEFAULT_PICKUP_PINCODE = "415003" # Mama Pedhewale Satara Kitchen Pincode
+
+# Configurable package defaults for box dimensions (in cm) and minimum dead weight (in kg)
+# Standard Indian sweets rigid box packaging dimensions
+DEFAULT_PACKAGE_LENGTH = float(os.environ.get('SHIPROCKET_DEFAULT_LENGTH', '15.0'))
+DEFAULT_PACKAGE_BREADTH = float(os.environ.get('SHIPROCKET_DEFAULT_BREADTH', '15.0'))
+DEFAULT_PACKAGE_HEIGHT = float(os.environ.get('SHIPROCKET_DEFAULT_HEIGHT', '10.0'))
+DEFAULT_MIN_WEIGHT_KG = float(os.environ.get('SHIPROCKET_MIN_WEIGHT_KG', '0.5'))
+MIN_WEIGHT_KG = DEFAULT_MIN_WEIGHT_KG
 
 # In-memory Token Cache
 _token_cache = {
@@ -42,7 +50,8 @@ def get_config():
         'email': os.environ.get('SHIPROCKET_EMAIL', '').strip(),
         'password': os.environ.get('SHIPROCKET_PASSWORD', '').strip(),
         'base_url': os.environ.get('SHIPROCKET_BASE_URL', DEFAULT_BASE_URL).rstrip('/'),
-        'pickup_location': os.environ.get('SHIPROCKET_PICKUP_LOCATION', DEFAULT_PICKUP_LOCATION).strip(),
+        'pickup_location': os.environ.get('SHIPROCKET_PICKUP_LOCATION', '').strip(),
+        'pickup_pincode': os.environ.get('SHIPROCKET_PICKUP_PINCODE', DEFAULT_PICKUP_PINCODE).strip(),
         'webhook_secret': os.environ.get('SHIPROCKET_WEBHOOK_SECRET', '').strip(),
         'auto_create': os.environ.get('SHIPROCKET_AUTO_CREATE', 'false').lower() in ['true', '1', 'yes']
     }
@@ -146,8 +155,13 @@ def shiprocket_request(method, endpoint, params=None, json_data=None, retry_on_4
 
 def calculate_order_weight(items):
     """
-    Calculates total package weight in kilograms based on item weight specifications.
-    Default minimum weight is 0.5 kg for secure packaging.
+    Calculates total package dead weight in kilograms based on item weight specifications.
+
+    How weight is determined:
+    - Extracts net sweet weight from item 'weight_selected' or 'weight' (e.g. 250g -> 0.25kg, 500g -> 0.5kg, 1kg -> 1.0kg).
+    - Multiplies item weight by quantity.
+    - Adds 0.1 kg box packaging tare allowance (rigid mithai gift box + moisture barrier lining).
+    - Applies minimum dead weight floor (DEFAULT_MIN_WEIGHT_KG = 0.5 kg) required by Shiprocket domestic parcel courier guidelines.
     """
     total_kg = 0.0
     for item in items:
@@ -157,13 +171,15 @@ def calculate_order_weight(items):
             item_weight = 0.25
         elif '500' in w_str:
             item_weight = 0.5
-        elif '1' in w_str and ('kg' in w_str or 'kilo' in w_str):
+        elif '1' in w_str and ('kg' in w_str or 'kilo' in w_str or '1000' in w_str):
             item_weight = 1.0
         else:
             item_weight = 0.5
         total_kg += item_weight * qty
 
-    return round(max(0.5, total_kg), 2)
+    # Net weight + box packaging tare weight (100g)
+    packed_weight = total_kg + 0.1
+    return round(max(DEFAULT_MIN_WEIGHT_KG, packed_weight), 2)
 
 def create_shiprocket_order(order_dict, items_list):
     """
@@ -187,7 +203,7 @@ def create_shiprocket_order(order_dict, items_list):
     customer_name = (order_dict.get('customer_name') or 'Customer').strip()
     name_parts = customer_name.split(' ', 1)
     first_name = name_parts[0]
-    last_name = name_parts[1] if len(name_parts) > 1 else 'Pawar'
+    last_name = name_parts[1] if len(name_parts) > 1 else 'Customer'
 
     pincode = str(order_dict.get('pincode', '')).strip()
     phone = str(order_dict.get('customer_phone', '')).strip()
@@ -201,7 +217,12 @@ def create_shiprocket_order(order_dict, items_list):
         raise ShiprocketError("Customer shipping address is missing.")
 
     cfg = get_config()
-    pickup_loc = cfg['pickup_location']
+    pickup_loc = cfg.get('pickup_location', '').strip()
+    if not pickup_loc:
+        raise ShiprocketConfigError(
+            "Shiprocket pickup location is not configured. Please set SHIPROCKET_PICKUP_LOCATION "
+            "in environment variables to match your Shiprocket pickup location nickname."
+        )
 
     # 3. Format line items
     sr_items = []
@@ -261,9 +282,9 @@ def create_shiprocket_order(order_dict, items_list):
         'order_items': sr_items,
         'payment_method': 'COD' if is_cod else 'Prepaid',
         'sub_total': total_amount,
-        'length': 15,
-        'breadth': 15,
-        'height': 10,
+        'length': DEFAULT_PACKAGE_LENGTH,
+        'breadth': DEFAULT_PACKAGE_BREADTH,
+        'height': DEFAULT_PACKAGE_HEIGHT,
         'weight': package_weight
     }
 
@@ -287,14 +308,16 @@ def create_shiprocket_order(order_dict, items_list):
 
 # ==================== COURIER SERVICEABILITY & ASSIGNMENT ====================
 
-def check_courier_serviceability(pickup_pincode, delivery_pincode, weight=0.5, is_cod=False):
+def check_courier_serviceability(pickup_pincode=None, delivery_pincode=None, weight=0.5, is_cod=False):
     """
     Checks courier serviceability and rates for a given route and parcel weight.
     """
+    cfg = get_config()
+    pickup_pin = str(pickup_pincode or cfg.get('pickup_pincode') or DEFAULT_PICKUP_PINCODE).strip()
     params = {
-        'pickup_postcode': str(pickup_pincode or '415003'),  # Mama Pedhewale Satara Pin
-        'delivery_postcode': str(delivery_pincode),
-        'weight': str(weight or 0.5),
+        'pickup_postcode': pickup_pin,
+        'delivery_postcode': str(delivery_pincode).strip(),
+        'weight': str(weight or DEFAULT_MIN_WEIGHT_KG),
         'cod': 1 if is_cod else 0
     }
 
@@ -325,6 +348,7 @@ def check_courier_serviceability(pickup_pincode, delivery_pincode, weight=0.5, i
 def assign_courier(shipment_id, courier_id=None):
     """
     Assigns courier and generates unique AWB for a shipment.
+    Stores actual returned courier name; never fabricates dummy courier names.
     """
     payload = {
         'shipment_id': int(shipment_id)
@@ -336,7 +360,7 @@ def assign_courier(shipment_id, courier_id=None):
     resp_data = res.get('response', {}).get('data', {}) or res.get('data', {}) or res
 
     awb_code = resp_data.get('awb_code')
-    courier_name = resp_data.get('courier_name') or 'Shiprocket Express Partner'
+    courier_name = resp_data.get('courier_name') or None
 
     if not awb_code:
         err_msg = res.get('message') or "AWB generation failed."
@@ -345,7 +369,7 @@ def assign_courier(shipment_id, courier_id=None):
     return {
         'success': True,
         'awb_code': str(awb_code),
-        'courier_name': str(courier_name),
+        'courier_name': str(courier_name) if courier_name else None,
         'shipment_id': str(shipment_id)
     }
 
@@ -412,7 +436,7 @@ def generate_invoice(order_id):
 def track_shipment(awb_code=None, shipment_id=None):
     """
     Retrieves real-time tracking information from Shiprocket for given AWB code or shipment ID.
-    Never exposes internal auth tokens to the client.
+    Never exposes internal auth tokens to the client. Never fabricates courier name.
     """
     if awb_code:
         endpoint = f"/courier/track/awb/{awb_code.strip()}"
@@ -429,7 +453,7 @@ def track_shipment(awb_code=None, shipment_id=None):
     first_track = shipment_track[0] if shipment_track else {}
 
     current_status = first_track.get('current_status') or tracking_data.get('current_status') or 'In Transit'
-    courier = first_track.get('courier_name') or 'Shiprocket Express'
+    courier = first_track.get('courier_name') or None
     scans = tracking_data.get('shipment_track_activities') or first_track.get('scans') or []
 
     return {
@@ -443,6 +467,36 @@ def track_shipment(awb_code=None, shipment_id=None):
         'scans': scans,
         'tracking_url': f"https://shiprocket.co/tracking/{awb_code}" if awb_code else None
     }
+
+def normalize_shiprocket_status(raw_status):
+    """
+    Normalizes Shiprocket tracking / webhook status string into internal:
+    (shipment_status, order_status_or_None)
+    """
+    s = str(raw_status or '').strip().upper()
+    if not s:
+        return 'Pending', None
+
+    if any(k in s for k in ['RTO', 'RETURN']):
+        return 'RTO', None
+    if any(k in s for k in ['CANCEL']):
+        return 'Cancelled', 'Cancelled'
+    if s in ['DELIVERED', 'DLVD']:
+        return 'Delivered', 'Delivered'
+    if any(k in s for k in ['OUT FOR DELIVERY', 'OFD']):
+        return 'Out for Delivery', 'Out for Delivery'
+    if any(k in s for k in ['IN TRANSIT', 'TRANSIT', 'SHIPPED', 'DISPATCHED', 'REACHED AT DESTINATION']):
+        return 'In Transit', 'Dispatched'
+    if any(k in s for k in ['PICKED UP', 'PICKUP DONE']):
+        return 'Picked Up', 'Dispatched'
+    if any(k in s for k in ['PICKUP SCHEDULED', 'PICKUP GENERATED', 'PICKUP QUEUED']):
+        return 'Pickup Scheduled', None
+    if any(k in s for k in ['AWB ASSIGNED', 'AWB GENERATED']):
+        return 'AWB Assigned', None
+    if any(k in s for k in ['NEW', 'CREATED', 'MANIFEST GENERATED']):
+        return 'Created', None
+
+    return raw_status.title(), None
 
 def cancel_shipment(awb_code=None, order_ids=None):
     """

@@ -312,7 +312,7 @@
                     <span class="text-[10px] text-gray-400 uppercase font-bold block mb-1">Courier Partner</span>
                     <div id="live-summary-courier" class="font-bold text-gray-900 text-sm flex items-center gap-1.5">
                         <i data-lucide="shield-check" class="w-3.5 h-3.5 text-emerald-600"></i>
-                        <span>{{ order.courier_name or 'Mama Fresh Express / Shiprocket' }}</span>
+                        <span>{{ order.courier_name or 'Courier assignment in progress' }}</span>
                     </div>
                     <span class="text-[11px] text-gray-500 mt-0.5 block">Express Mithai Transit</span>
                 </div>
@@ -419,7 +419,7 @@
                 {% if order.status in ['Dispatched', 'Out for Delivery', 'Delivered'] or order.awb_code %}
                 <div class="flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-amber-200 text-xs text-gray-700 shadow-xs">
                     <span class="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
-                    <span class="font-semibold text-[11px]">AWB: <strong>{{ order.awb_code or order.tracking_number or ('MP-EXP-' + order.id[-5:]) }}</strong></span>
+                    <span class="font-semibold text-[11px]">AWB: <strong>{{ order.awb_code or order.tracking_number or 'Assigned upon packing' }}</strong></span>
                 </div>
                 {% endif %}
             </div>
@@ -433,7 +433,7 @@
                 </div>
                 <div class="p-3.5 bg-white rounded-2xl border border-amber-100 shadow-2xs">
                     <span class="text-[10px] text-gray-400 uppercase font-bold block mb-0.5">2. Transit Route &amp; Partner</span>
-                    <strong class="text-xs text-gray-900 block">{{ order.courier_name or 'Mama Fresh Express' }}</strong>
+                    <strong class="text-xs text-gray-900 block">{{ order.courier_name or 'Courier to be assigned' }}</strong>
                     <span class="text-[11px] text-gray-500">
                         {% if order.shipment_status and order.shipment_status != 'Pending' %}
                         Shiprocket Status: {{ order.shipment_status }}

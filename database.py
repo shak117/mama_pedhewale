@@ -188,7 +188,7 @@ def init_db():
     except Exception:
         pass
     try:
-        cursor.execute("ALTER TABLE orders ADD COLUMN courier_name TEXT DEFAULT 'Mama Fresh Express'")
+        cursor.execute("ALTER TABLE orders ADD COLUMN courier_name TEXT")
     except Exception:
         pass
     try:
@@ -219,7 +219,7 @@ def init_db():
         ("shiprocket_order_id", "TEXT"),
         ("shiprocket_shipment_id", "TEXT"),
         ("awb_code", "TEXT"),
-        ("courier_name", "TEXT DEFAULT 'Mama Fresh Express'"),
+        ("courier_name", "TEXT"),
         ("shipment_status", "TEXT DEFAULT 'Pending'"),
         ("tracking_url", "TEXT"),
         ("label_url", "TEXT"),
@@ -233,6 +233,67 @@ def init_db():
             cursor.execute(f"ALTER TABLE orders ADD COLUMN {col_name} {col_type}")
         except Exception:
             pass
+
+    # Clean up legacy default value 'Mama Fresh Express' on courier_name column if present in table schema
+    try:
+        col_info = cursor.execute("PRAGMA table_info(orders)").fetchall()
+        has_bad_default = any(col[1] == 'courier_name' and col[4] and 'Mama Fresh' in str(col[4]) for col in col_info)
+        if has_bad_default:
+            cursor.execute("PRAGMA foreign_keys=OFF")
+            cols = [c[1] for c in col_info]
+            cols_str = ", ".join(cols)
+            cursor.execute("ALTER TABLE orders RENAME TO _orders_legacy_backup")
+            cursor.execute("""
+            CREATE TABLE orders (
+                id TEXT PRIMARY KEY,
+                customer_name TEXT NOT NULL,
+                customer_phone TEXT NOT NULL,
+                customer_email TEXT,
+                address_line1 TEXT NOT NULL,
+                address_line2 TEXT,
+                city TEXT NOT NULL,
+                state TEXT NOT NULL,
+                pincode TEXT NOT NULL,
+                delivery_type TEXT DEFAULT 'standard',
+                delivery_date TEXT,
+                delivery_slot TEXT,
+                gift_message TEXT,
+                payment_method TEXT NOT NULL,
+                payment_status TEXT DEFAULT 'Pending',
+                subtotal INTEGER NOT NULL,
+                delivery_fee INTEGER NOT NULL,
+                discount INTEGER DEFAULT 0,
+                total_amount INTEGER NOT NULL,
+                status TEXT DEFAULT 'Confirmed',
+                notes TEXT,
+                razorpay_order_id TEXT,
+                razorpay_payment_id TEXT,
+                razorpay_signature TEXT,
+                payment_details TEXT,
+                tracking_number TEXT,
+                courier_name TEXT,
+                dispatched_at TIMESTAMP,
+                shiprocket_order_id TEXT,
+                shiprocket_shipment_id TEXT,
+                awb_code TEXT,
+                shipment_status TEXT DEFAULT 'Pending',
+                tracking_url TEXT,
+                label_url TEXT,
+                invoice_url TEXT,
+                pickup_scheduled_at TIMESTAMP,
+                shiprocket_created_at TIMESTAMP,
+                shiprocket_updated_at TIMESTAMP,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """)
+            cursor.execute(f"INSERT INTO orders ({cols_str}) SELECT {cols_str} FROM _orders_legacy_backup")
+            cursor.execute("DROP TABLE _orders_legacy_backup")
+            cursor.execute("UPDATE orders SET courier_name = NULL WHERE courier_name = 'Mama Fresh Express' AND awb_code IS NULL")
+            cursor.execute("PRAGMA foreign_keys=ON")
+        else:
+            cursor.execute("UPDATE orders SET courier_name = NULL WHERE courier_name = 'Mama Fresh Express' AND awb_code IS NULL")
+    except Exception:
+        pass
 
     conn.commit()
     conn.close()

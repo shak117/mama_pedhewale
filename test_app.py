@@ -562,10 +562,10 @@ class MamaPedhewaleTests(unittest.TestCase):
             {'product_name': 'Kaju Katli', 'weight_selected': '500g', 'quantity': 2},
             {'product_name': 'Besan Laddu', 'weight_selected': '1kg', 'quantity': 1}
         ]
-        # 0.25*1 + 0.5*2 + 1.0*1 = 2.25 kg
-        self.assertEqual(shiprocket_service.calculate_order_weight(items), 2.25)
+        # 0.25*1 + 0.5*2 + 1.0*1 = 2.25 kg + 0.1kg box tare = 2.35 kg
+        self.assertEqual(shiprocket_service.calculate_order_weight(items), 2.35)
 
-        # Minimum weight check (0.25kg should default to 0.5kg min)
+        # Minimum weight check (0.25kg + 0.1kg tare = 0.35kg, rounded up to 0.5kg min floor)
         min_items = [{'product_name': 'Kandi Pedha', 'weight_selected': '250g', 'quantity': 1}]
         self.assertEqual(shiprocket_service.calculate_order_weight(min_items), 0.5)
 
@@ -615,7 +615,8 @@ class MamaPedhewaleTests(unittest.TestCase):
             'status': 'NEW'
         }
 
-        with patch('shiprocket_service.get_shiprocket_token', return_value='fake_jwt'), \
+        with patch.dict('os.environ', {'SHIPROCKET_PICKUP_LOCATION': 'Satara Warehouse'}), \
+             patch('shiprocket_service.get_shiprocket_token', return_value='fake_jwt'), \
              patch('shiprocket_service.shiprocket_request', return_value=mock_create_resp):
 
             res = shiprocket_service.create_shiprocket_order(order_dict, items)
@@ -846,7 +847,9 @@ class MamaPedhewaleTests(unittest.TestCase):
         conn.commit()
         conn.close()
 
-        # 1. Test IN TRANSIT webhook event
+        wh_secret = 'whsec_test_secret_123'
+
+        # 1. Test IN TRANSIT webhook event via primary endpoint /api/shipping/webhook
         wh_transit_payload = {
             'order_id': order_id,
             'shipment_id': 'SR-SHIP-999',
@@ -855,35 +858,40 @@ class MamaPedhewaleTests(unittest.TestCase):
             'current_status': 'IN TRANSIT'
         }
 
-        transit_resp = self.client.post('/api/shipping/shiprocket/webhook',
-            data=json.dumps(wh_transit_payload),
-            content_type='application/json')
-        self.assertEqual(transit_resp.status_code, 200)
+        with patch.dict('os.environ', {'SHIPROCKET_WEBHOOK_SECRET': wh_secret}):
+            transit_resp = self.client.post('/api/shipping/webhook',
+                data=json.dumps(wh_transit_payload),
+                headers={'x-api-key': wh_secret},
+                content_type='application/json')
+            self.assertEqual(transit_resp.status_code, 200)
 
-        conn = get_db()
-        ord_db = conn.execute("SELECT status, shipment_status, awb_code, courier_name FROM orders WHERE id = ?", (order_id,)).fetchone()
-        self.assertEqual(ord_db['status'], 'Dispatched')
-        self.assertEqual(ord_db['shipment_status'], 'IN TRANSIT')
-        self.assertEqual(ord_db['awb_code'], 'AWB-WH-999')
-        conn.close()
+            conn = get_db()
+            ord_db = conn.execute("SELECT status, shipment_status, awb_code, courier_name, payment_status FROM orders WHERE id = ?", (order_id,)).fetchone()
+            self.assertEqual(ord_db['status'], 'Dispatched')
+            self.assertEqual(ord_db['shipment_status'], 'In Transit')
+            self.assertEqual(ord_db['awb_code'], 'AWB-WH-999')
+            self.assertEqual(ord_db['payment_status'], 'Pending')
+            conn.close()
 
-        # 2. Test DELIVERED webhook event - should update status to Delivered AND mark COD as Paid
-        wh_delivered_payload = {
-            'order_id': order_id,
-            'current_status': 'DELIVERED'
-        }
+            # 2. Test DELIVERED webhook event via legacy alias /api/shipping/shiprocket/webhook
+            # CRITICAL: Parcel delivery must NEVER mutate COD payment_status to 'Paid'
+            wh_delivered_payload = {
+                'order_id': order_id,
+                'current_status': 'DELIVERED'
+            }
 
-        deliv_resp = self.client.post('/api/shipping/shiprocket/webhook',
-            data=json.dumps(wh_delivered_payload),
-            content_type='application/json')
-        self.assertEqual(deliv_resp.status_code, 200)
+            deliv_resp = self.client.post('/api/shipping/shiprocket/webhook',
+                data=json.dumps(wh_delivered_payload),
+                headers={'x-api-key': wh_secret},
+                content_type='application/json')
+            self.assertEqual(deliv_resp.status_code, 200)
 
-        conn = get_db()
-        ord_deliv = conn.execute("SELECT status, payment_status, shipment_status FROM orders WHERE id = ?", (order_id,)).fetchone()
-        self.assertEqual(ord_deliv['status'], 'Delivered')
-        self.assertEqual(ord_deliv['payment_status'], 'Paid')
-        self.assertEqual(ord_deliv['shipment_status'], 'DELIVERED')
-        conn.close()
+            conn = get_db()
+            ord_deliv = conn.execute("SELECT status, payment_status, shipment_status FROM orders WHERE id = ?", (order_id,)).fetchone()
+            self.assertEqual(ord_deliv['status'], 'Delivered')
+            self.assertEqual(ord_deliv['shipment_status'], 'Delivered')
+            self.assertEqual(ord_deliv['payment_status'], 'Pending')
+            conn.close()
 
     def test_24_safe_checkout_without_shiprocket(self):
         # Verify that customer checkout succeeds even if Shiprocket is not configured or throws error
@@ -994,6 +1002,115 @@ class MamaPedhewaleTests(unittest.TestCase):
         self.assertIn('Payment', success_html)
         self.assertIn('Shipping', success_html)
         self.assertIn('Track Order &rarr;', success_html)
+
+    def test_28_shiprocket_pickup_location_validation(self):
+        import shiprocket_service
+        from shiprocket_service import ShiprocketConfigError
+
+        order_dict = {
+            'id': 'MP-SR-VALIDATE-001',
+            'customer_name': 'Validation User',
+            'customer_phone': '9822112233',
+            'customer_email': 'val@example.com',
+            'address_line1': '101 Station Road',
+            'city': 'Satara',
+            'state': 'Maharashtra',
+            'pincode': '415001',
+            'payment_method': 'cod',
+            'total_amount': 500
+        }
+        items = [{'product_name': 'Satara Pedha', 'weight_selected': '500g', 'quantity': 1, 'unit_price': 500}]
+
+        # Without SHIPROCKET_PICKUP_LOCATION set, create_shiprocket_order MUST raise ShiprocketConfigError
+        with patch.dict('os.environ', {'SHIPROCKET_PICKUP_LOCATION': ''}):
+            with self.assertRaises(ShiprocketConfigError):
+                shiprocket_service.create_shiprocket_order(order_dict, items)
+
+    def test_29_shiprocket_webhook_security_and_rejections(self):
+        wh_payload = {
+            'order_id': 'MP-TEST-DETAILS-1',
+            'current_status': 'IN TRANSIT'
+        }
+
+        # 1. Secret not configured on server -> 401
+        with patch.dict('os.environ', {'SHIPROCKET_WEBHOOK_SECRET': ''}):
+            resp = self.client.post('/api/shipping/webhook',
+                data=json.dumps(wh_payload),
+                headers={'x-api-key': 'some_key'},
+                content_type='application/json')
+            self.assertEqual(resp.status_code, 401)
+            self.assertIn('Webhook secret not configured', resp.get_json()['error'])
+
+        # 2. Missing x-api-key header when secret is configured -> 401
+        with patch.dict('os.environ', {'SHIPROCKET_WEBHOOK_SECRET': 'my_prod_secret'}):
+            resp = self.client.post('/api/shipping/webhook',
+                data=json.dumps(wh_payload),
+                content_type='application/json')
+            self.assertEqual(resp.status_code, 401)
+            self.assertIn('Unauthorized', resp.get_json()['error'])
+
+            # 3. Wrong x-api-key header -> 401
+            resp_wrong = self.client.post('/api/shipping/webhook',
+                data=json.dumps(wh_payload),
+                headers={'x-api-key': 'wrong_secret_123'},
+                content_type='application/json')
+            self.assertEqual(resp_wrong.status_code, 401)
+
+            # 4. Valid x-api-key header -> 200
+            resp_ok = self.client.post('/api/shipping/webhook',
+                data=json.dumps(wh_payload),
+                headers={'x-api-key': 'my_prod_secret'},
+                content_type='application/json')
+            self.assertEqual(resp_ok.status_code, 200)
+
+    def test_30_no_fake_courier_fallbacks(self):
+        import shiprocket_service
+
+        # 1. assign_courier returns None for courier_name if API response doesn't provide one
+        mock_awb_resp = {'awb_assign_status': 1, 'response': {'data': {'awb_code': 'AWB-TEST-REAL'}}}
+        with patch('shiprocket_service.get_shiprocket_token', return_value='fake_jwt'), \
+             patch('shiprocket_service.shiprocket_request', return_value=mock_awb_resp):
+            res = shiprocket_service.assign_courier('12345')
+            self.assertIsNone(res['courier_name'])
+            self.assertNotEqual(res.get('courier_name'), 'Shiprocket Express Partner')
+
+        # 2. track_shipment returns None for courier_name if unassigned
+        mock_track_resp = {'tracking_data': {'track_status': 1, 'shipment_status': 'In Transit'}}
+        with patch('shiprocket_service.get_shiprocket_token', return_value='fake_jwt'), \
+             patch('shiprocket_service.shiprocket_request', return_value=mock_track_resp):
+            t_res = shiprocket_service.track_shipment('12345')
+            self.assertIsNone(t_res['courier_name'])
+            self.assertNotEqual(t_res.get('courier_name'), 'Shiprocket Express')
+
+        # 3. Newly created order has NULL courier_name, not 'Mama Fresh Express'
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute("DELETE FROM orders WHERE id = 'TEST-COURIER-NULL'")
+        cursor.execute("""
+            INSERT INTO orders (id, customer_name, customer_phone, address_line1, city, state, pincode, payment_method, total_amount, subtotal, delivery_fee)
+            VALUES ('TEST-COURIER-NULL', 'User', '9999999999', 'Road', 'Satara', 'MH', '415001', 'cod', 300, 300, 0)
+        """)
+        conn.commit()
+        ord_row = cursor.execute("SELECT courier_name FROM orders WHERE id = 'TEST-COURIER-NULL'").fetchone()
+        self.assertIsNone(ord_row['courier_name'])
+        conn.close()
+
+    def test_31_package_weight_and_dimension_calculation(self):
+        import shiprocket_service
+
+        # Verify package dimensions constants
+        self.assertEqual(shiprocket_service.DEFAULT_PACKAGE_LENGTH, 15.0)
+        self.assertEqual(shiprocket_service.DEFAULT_PACKAGE_BREADTH, 15.0)
+        self.assertEqual(shiprocket_service.DEFAULT_PACKAGE_HEIGHT, 10.0)
+        self.assertEqual(shiprocket_service.MIN_WEIGHT_KG, 0.5)
+
+        # 1kg item + 0.1kg tare = 1.1kg dead weight
+        items_1kg = [{'product_name': 'Satara Pedha', 'weight_selected': '1kg', 'quantity': 1}]
+        self.assertEqual(shiprocket_service.calculate_order_weight(items_1kg), 1.1)
+
+        # 250g item (0.25kg) + 0.1kg tare = 0.35kg -> rounded up to MIN_WEIGHT_KG (0.5kg)
+        items_small = [{'product_name': 'Satara Pedha', 'weight_selected': '250g', 'quantity': 1}]
+        self.assertEqual(shiprocket_service.calculate_order_weight(items_small), 0.5)
 
 if __name__ == '__main__':
     unittest.main()

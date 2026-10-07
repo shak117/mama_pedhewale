@@ -176,7 +176,7 @@
                                     {% endif %}
                                 </div>
                                 <div class="text-[10px] text-gray-500 truncate max-w-[130px]" title="{{ ord.courier_name }}">
-                                    {{ ord.courier_name or 'Shiprocket Express' }}
+                                    {{ ord.courier_name or 'Not Assigned' }}
                                 </div>
                                 <button type="button" onclick="openShippingModal('{{ ord.id }}', '{{ ord.shiprocket_order_id }}', '{{ ord.shiprocket_shipment_id }}', '{{ ord.awb_code or '' }}', '{{ (ord.courier_name or '')|escape }}', '{{ ord.shipment_status or '' }}', '{{ ord.tracking_url or '' }}', '{{ ord.label_url or '' }}', '{{ ord.invoice_url or '' }}', '{{ ord.payment_method }}', '{{ ord.payment_status }}')" class="inline-flex items-center gap-1 text-[11px] font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 px-2 py-0.5 rounded border border-indigo-200 transition">
                                     <i data-lucide="settings-2" class="w-3 h-3"></i>

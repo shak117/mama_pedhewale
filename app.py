@@ -1535,7 +1535,8 @@ def api_public_shipping_track(order_id):
     """
     Public tracking endpoint for customers.
     Provides courier partner, AWB code, shipment status, live tracking URL, and scans.
-    Never exposes internal auth tokens or secrets.
+    Never exposes internal auth tokens, credentials, or secrets.
+    Does not fabricate courier names.
     """
     conn = get_db()
     order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
@@ -1545,7 +1546,7 @@ def api_public_shipping_track(order_id):
         return jsonify({'error': 'Order not found.'}), 404
 
     awb_code = order['awb_code'] or order['tracking_number']
-    courier_name = order['courier_name'] or 'Mama Fresh Express'
+    courier_name = order['courier_name']
     shipment_status = order['shipment_status'] or order['status']
     tracking_url = order['tracking_url'] or (f"https://shiprocket.co/tracking/{awb_code}" if order['awb_code'] else None)
 
@@ -1562,6 +1563,8 @@ def api_public_shipping_track(order_id):
                         expected_date = track_res.get('expected_date')
                     if track_res.get('current_status'):
                         shipment_status = track_res.get('current_status')
+                    if track_res.get('courier_name'):
+                        courier_name = track_res.get('courier_name')
         except Exception as e:
             app.logger.warning(f"Live scan fetch skipped for public track {order_id}: {e}")
 
@@ -1583,35 +1586,46 @@ def api_public_shipping_track(order_id):
         'scans': scans
     })
 
+@app.route('/api/shipping/webhook', methods=['POST'])
 @app.route('/api/shipping/shiprocket/webhook', methods=['POST'])
-def api_shiprocket_webhook():
+def api_shipping_webhook():
     """
     Receives automated real-time shipment updates from Shiprocket.
-    Verifies x-api-key if SHIPROCKET_WEBHOOK_SECRET is set.
-    Updates order fulfillment status, shipment status, and tracking details.
+    Official webhook URL: https://<domain>/api/shipping/webhook
+    Validates x-api-key against SHIPROCKET_WEBHOOK_SECRET.
+    Never alters payment_status upon shipment delivery (payment and shipping are strictly decoupled).
+    Idempotent processing.
     """
     import shiprocket_service
     cfg = shiprocket_service.get_config()
     secret = cfg.get('webhook_secret')
 
-    if secret:
-        client_key = request.headers.get('x-api-key') or request.headers.get('X-Api-Key') or request.headers.get('HTTP_X_API_KEY')
-        if not client_key or client_key != secret:
-            app.logger.warning("Shiprocket webhook received with invalid or missing x-api-key.")
-            return jsonify({'error': 'Unauthorized webhook call.'}), 401
+    client_key = (
+        request.headers.get('x-api-key') or 
+        request.headers.get('X-Api-Key') or 
+        request.headers.get('X-API-KEY')
+    )
+
+    if not secret:
+        app.logger.warning("Shipping webhook rejected: SHIPROCKET_WEBHOOK_SECRET not configured on server.")
+        return jsonify({'error': 'Webhook secret not configured on server.'}), 401
+
+    if not client_key or not hmac.compare_digest(client_key.strip(), secret.strip()):
+        app.logger.warning("Shipping webhook received with invalid or missing x-api-key header.")
+        return jsonify({'error': 'Unauthorized: Invalid or missing x-api-key'}), 401
 
     try:
         payload = request.get_json(force=True) or {}
     except Exception:
         return jsonify({'error': 'Invalid JSON body'}), 400
 
-    app.logger.info(f"Shiprocket webhook received: {json.dumps(payload)}")
+    app.logger.info(f"Shipping webhook received for order reference: {payload.get('order_id')}")
 
     internal_order_id = payload.get('order_id')
     sr_shipment_id = str(payload.get('shipment_id') or '')
     awb_code = str(payload.get('awb') or payload.get('awb_code') or '')
     courier_name = payload.get('courier_name')
-    current_status = str(payload.get('current_status') or payload.get('status') or '').strip().upper()
+    raw_status = str(payload.get('current_status') or payload.get('status') or '').strip()
 
     conn = get_db()
     cursor = conn.cursor()
@@ -1626,25 +1640,25 @@ def api_shiprocket_webhook():
 
     if not order:
         conn.close()
-        app.logger.warning(f"Order not found for Shiprocket webhook: order_id={internal_order_id}, shipment_id={sr_shipment_id}")
+        app.logger.warning(f"Order not found for shipping webhook: order_id={internal_order_id}, shipment_id={sr_shipment_id}")
         return jsonify({'status': 'ignored', 'message': 'Order not found in database.'}), 200
 
-    new_order_status = order['status']
-    new_payment_status = order['payment_status']
-    is_cod = (str(order['payment_method']).lower() == 'cod')
+    normalized_shipment_status, normalized_order_status = shiprocket_service.normalize_shiprocket_status(raw_status)
 
-    if current_status in ['IN TRANSIT', 'DISPATCHED', 'PICKED UP', 'SHIPPED']:
-        if order['status'] in ['Pending', 'Confirmed', 'Packed']:
-            new_order_status = 'Dispatched'
-    elif current_status in ['OUT FOR DELIVERY']:
-        new_order_status = 'Out for Delivery'
-    elif current_status in ['DELIVERED']:
-        new_order_status = 'Delivered'
-        if is_cod and order['payment_status'] != 'Paid':
-            new_payment_status = 'Paid'
-    elif current_status in ['CANCELED', 'CANCELLED']:
-        if order['status'] not in ['Delivered']:
-            new_order_status = 'Cancelled'
+    new_order_status = order['status']
+    # CRITICAL: Keep payment_status separate. NEVER change payment_status from shipping webhook!
+    new_payment_status = order['payment_status']
+
+    if normalized_order_status:
+        if order['status'] != 'Delivered':
+            if normalized_order_status == 'Delivered':
+                new_order_status = 'Delivered'
+            elif normalized_order_status == 'Out for Delivery' and order['status'] != 'Delivered':
+                new_order_status = 'Out for Delivery'
+            elif normalized_order_status == 'Dispatched' and order['status'] in ['Pending', 'Confirmed', 'Packed']:
+                new_order_status = 'Dispatched'
+            elif normalized_order_status == 'Cancelled' and order['status'] != 'Delivered':
+                new_order_status = 'Cancelled'
 
     tracking_url = f"https://shiprocket.co/tracking/{awb_code}" if awb_code else order['tracking_url']
 
@@ -1654,7 +1668,7 @@ def api_shiprocket_webhook():
             payment_status = ?,
             shipment_status = COALESCE(?, shipment_status),
             awb_code = COALESCE(NULLIF(?, ''), awb_code),
-            courier_name = COALESCE(?, courier_name),
+            courier_name = COALESCE(NULLIF(?, ''), courier_name),
             tracking_number = COALESCE(NULLIF(?, ''), tracking_number),
             tracking_url = COALESCE(?, tracking_url),
             shiprocket_updated_at = datetime('now', 'localtime')
@@ -1662,7 +1676,7 @@ def api_shiprocket_webhook():
     """, (
         new_order_status,
         new_payment_status,
-        current_status or order['shipment_status'],
+        normalized_shipment_status or order['shipment_status'],
         awb_code,
         courier_name,
         awb_code,
@@ -1672,8 +1686,12 @@ def api_shiprocket_webhook():
     conn.commit()
     conn.close()
 
-    app.logger.info(f"Order {order['id']} updated via Shiprocket webhook: status='{new_order_status}', shipment_status='{current_status}'")
-    return jsonify({'status': 'ok', 'order_id': order['id'], 'shipment_status': current_status}), 200
+    app.logger.info(f"Order {order['id']} updated via shipping webhook: status='{new_order_status}', shipment_status='{normalized_shipment_status}'")
+    return jsonify({
+        'status': 'ok',
+        'order_id': order['id'],
+        'shipment_status': normalized_shipment_status
+    }), 200
 
 if __name__ == '__main__':
     init_db()
