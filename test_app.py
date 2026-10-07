@@ -10,8 +10,16 @@ from seed_data import seed_database
 class MamaPedhewaleTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
+        import os
+        for k in ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_SECRET', 'SHIPROCKET_WEBHOOK_TOKEN', 'SHIPROCKET_PICKUP_LOCATION']:
+            os.environ.pop(k, None)
         seed_database()
         cls.client = app.test_client()
+
+    def setUp(self):
+        import os
+        for k in ['SHIPROCKET_EMAIL', 'SHIPROCKET_PASSWORD', 'SHIPROCKET_WEBHOOK_SECRET', 'SHIPROCKET_WEBHOOK_TOKEN', 'SHIPROCKET_PICKUP_LOCATION']:
+            os.environ.pop(k, None)
 
     def test_01_homepage_renders(self):
         response = self.client.get('/')
