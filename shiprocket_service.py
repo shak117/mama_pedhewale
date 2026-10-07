@@ -52,7 +52,7 @@ def get_config():
         'base_url': os.environ.get('SHIPROCKET_BASE_URL', DEFAULT_BASE_URL).rstrip('/'),
         'pickup_location': os.environ.get('SHIPROCKET_PICKUP_LOCATION', '').strip(),
         'pickup_pincode': os.environ.get('SHIPROCKET_PICKUP_PINCODE', DEFAULT_PICKUP_PINCODE).strip(),
-        'webhook_secret': os.environ.get('SHIPROCKET_WEBHOOK_SECRET', '').strip(),
+        'webhook_secret': (os.environ.get('SHIPROCKET_WEBHOOK_SECRET', '') or os.environ.get('SHIPROCKET_WEBHOOK_TOKEN', '')).strip(),
         'auto_create': os.environ.get('SHIPROCKET_AUTO_CREATE', 'true').lower() in ['true', '1', 'yes']
     }
 
