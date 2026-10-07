@@ -1732,16 +1732,26 @@ def api_public_shipping_track(order_id):
         'scans': scans
     })
 
-@app.route('/api/shipping/webhook', methods=['POST'])
-@app.route('/api/shipping/shiprocket/webhook', methods=['POST'])
+@app.route('/api/shipping/webhook', methods=['GET', 'POST', 'HEAD'])
+@app.route('/api/shipping/shiprocket/webhook', methods=['GET', 'POST', 'HEAD'])
+@app.route('/api/shiprocket/webhook', methods=['GET', 'POST', 'HEAD'])
 def api_shipping_webhook():
     """
     Receives automated real-time shipment updates from Shiprocket.
     Official webhook URL: https://<domain>/api/shipping/webhook
-    Validates x-api-key against SHIPROCKET_WEBHOOK_SECRET.
+    Validates x-api-key against SHIPROCKET_WEBHOOK_SECRET (or SHIPROCKET_WEBHOOK_TOKEN).
     Never alters payment_status upon shipment delivery (payment and shipping are strictly decoupled).
     Idempotent processing.
     """
+    # 1. Health check / test connectivity for GET / HEAD requests
+    if request.method in ['GET', 'HEAD']:
+        return jsonify({
+            'status': 'active',
+            'service': 'Shiprocket Webhook Receiver',
+            'endpoint': request.path,
+            'message': 'Shiprocket webhook endpoint is operational and ready to accept POST updates.'
+        }), 200
+
     import shiprocket_service
     cfg = shiprocket_service.get_config()
     secret = cfg.get('webhook_secret')
@@ -1749,21 +1759,35 @@ def api_shipping_webhook():
     client_key = (
         request.headers.get('x-api-key') or 
         request.headers.get('X-Api-Key') or 
-        request.headers.get('X-API-KEY')
+        request.headers.get('X-API-KEY') or
+        request.headers.get('x_api_key') or
+        request.headers.get('Authorization', '').replace('Bearer ', '').strip() or
+        request.args.get('token')
     )
 
     if not secret:
-        app.logger.warning("Shipping webhook rejected: SHIPROCKET_WEBHOOK_SECRET not configured on server.")
-        return jsonify({'error': 'Webhook secret not configured on server.'}), 401
+        app.logger.warning("Shipping webhook rejected: SHIPROCKET_WEBHOOK_SECRET / SHIPROCKET_WEBHOOK_TOKEN not configured on server.")
+        return jsonify({
+            'error': 'Webhook secret not configured on server.',
+            'instruction': 'Please add SHIPROCKET_WEBHOOK_TOKEN or SHIPROCKET_WEBHOOK_SECRET to your Vercel Environment Variables.'
+        }), 401
 
-    if not client_key or not hmac.compare_digest(client_key.strip(), secret.strip()):
+    if not client_key or not hmac.compare_digest(str(client_key).strip().strip('"').strip("'"), str(secret).strip().strip('"').strip("'")):
         app.logger.warning("Shipping webhook received with invalid or missing x-api-key header.")
         return jsonify({'error': 'Unauthorized: Invalid or missing x-api-key'}), 401
 
     try:
-        payload = request.get_json(force=True) or {}
+        payload = request.get_json(force=True, silent=True) or request.form.to_dict() or {}
     except Exception:
-        return jsonify({'error': 'Invalid JSON body'}), 400
+        payload = {}
+
+    # 2. Handle Shiprocket Dashboard "Test Webhook" ping gracefully
+    if not payload or payload.get('test') is True or payload.get('event') in ['test', 'ping'] or str(payload.get('order_id', '')).lower() in ['test', 'ping', 'test_order']:
+        app.logger.info("Shiprocket test ping received and verified successfully.")
+        return jsonify({
+            'status': 'ok',
+            'message': 'Shiprocket webhook connection verified successfully!'
+        }), 200
 
     app.logger.info(f"Shipping webhook received for order reference: {payload.get('order_id')}")
 
@@ -1787,8 +1811,8 @@ def api_shipping_webhook():
 
     if not order:
         conn.close()
-        app.logger.warning(f"Order not found for shipping webhook: order_id={internal_order_id}, shipment_id={sr_shipment_id}")
-        return jsonify({'status': 'ignored', 'message': 'Order not found in database.'}), 200
+        app.logger.info(f"Order not found for shipping webhook: order_id={internal_order_id}, shipment_id={sr_shipment_id}")
+        return jsonify({'status': 'ok', 'message': 'Webhook received successfully (order not in database).'}), 200
 
     normalized_shipment_status, normalized_order_status = shiprocket_service.normalize_shiprocket_status(raw_status)
 
