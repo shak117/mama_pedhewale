@@ -292,8 +292,7 @@
 
     function updateSubmitButtonText() {
         const btn = document.getElementById('place-order-btn');
-        const spanText = document.getElementById('place-order-btn-text');
-        if (!btn || !spanText) return;
+        if (!btn) return;
 
         const pin = (document.getElementById('cust-pincode')?.value || '').trim();
         const selectedMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'razorpay';
