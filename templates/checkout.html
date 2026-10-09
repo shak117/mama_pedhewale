@@ -54,8 +54,8 @@
                     <div>
                         <label class="block text-xs font-medium text-gray-700 mb-1">Delivery PIN Code *</label>
                         <div class="relative">
-                            <input type="text" id="cust-pincode" required maxlength="6" onblur="validateCheckoutPincode()" placeholder="e.g. 415001" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
-                            <span id="pincode-spin" class="hidden absolute right-3 top-2.5 text-xs text-gray-400">Verifying...</span>
+                            <input type="text" id="cust-pincode" required maxlength="6" oninput="onPincodeInput(this.value)" onblur="validateCheckoutPincode()" placeholder="e.g. 415001" class="w-full text-xs px-3.5 py-2.5 rounded-xl border border-gray-200 focus:outline-none focus:border-brand-gold">
+                            <span id="pincode-spin" class="hidden absolute right-3 top-2.5 text-xs text-amber-700 font-semibold animate-pulse">Calculating...</span>
                         </div>
                         <div id="checkout-pincode-feedback" class="text-[11px] font-semibold mt-1"></div>
                     </div>
@@ -230,9 +230,12 @@
                         <span>Items Subtotal</span>
                         <span class="font-semibold text-gray-900">₹<span id="co-subtotal">0</span></span>
                     </div>
-                    <div class="flex justify-between">
-                        <span>Delivery & Packaging Fee</span>
-                        <span id="co-shipping" class="font-semibold text-gray-900">₹0</span>
+                    <div class="flex justify-between items-center">
+                        <div>
+                            <span class="block">Delivery & Packaging Fee</span>
+                            <span id="co-shipping-subtext" class="text-[10px] text-gray-400 block font-normal">Calculated via Shiprocket</span>
+                        </div>
+                        <span id="co-shipping" class="font-semibold text-gray-900 text-xs">Enter PIN code</span>
                     </div>
                     <div id="co-discount-row" class="flex justify-between text-green-700 hidden">
                         <span>Festival Special Discount</span>
@@ -277,12 +280,14 @@
 <script src="https://checkout.razorpay.com/v1/checkout.js"></script>
 
 <script>
-    let checkoutShippingFee = 0;
-    let isPincodeServiceable = true;
+    let checkoutShippingFee = null;
+    let isPincodeServiceable = false;
+    let isCalculatingShipping = false;
 
     function getGrandTotal() {
         const subtotal = getCartSubtotal();
-        return subtotal + checkoutShippingFee;
+        const ship = (typeof checkoutShippingFee === 'number') ? checkoutShippingFee : 0;
+        return subtotal + ship;
     }
 
     function updateSubmitButtonText() {
@@ -290,15 +295,34 @@
         const spanText = document.getElementById('place-order-btn-text');
         if (!btn || !spanText) return;
 
-        const total = getGrandTotal();
+        const pin = (document.getElementById('cust-pincode')?.value || '').trim();
         const selectedMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'razorpay';
 
+        if (isCalculatingShipping) {
+            btn.disabled = true;
+            btn.innerHTML = `<span class="animate-pulse">Calculating delivery charges via Shiprocket...</span>`;
+            return;
+        }
+
+        if (pin.length === 6 && !isPincodeServiceable) {
+            btn.disabled = true;
+            btn.innerHTML = `<i data-lucide="alert-circle" class="w-4 h-4 text-red-300"></i><span>Delivery Unavailable for PIN ${pin}</span>`;
+            if (window.lucide) lucide.createIcons();
+            return;
+        }
+
+        btn.disabled = false;
+        const total = getGrandTotal();
+
         if (selectedMethod === 'razorpay') {
-            btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4 text-brand-gold"></i><span id="place-order-btn-text">Proceed to Razorpay Checkout (₹${total})</span>`;
+            const amountText = (checkoutShippingFee !== null) ? `(₹${total})` : `(₹${total} + Delivery)`;
+            btn.innerHTML = `<i data-lucide="shield-check" class="w-4 h-4 text-brand-gold"></i><span id="place-order-btn-text">Proceed to Razorpay Checkout ${amountText}</span>`;
         } else if (selectedMethod === 'cod') {
-            btn.innerHTML = `<i data-lucide="banknote" class="w-4 h-4 text-brand-gold"></i><span id="place-order-btn-text">Confirm Order with Cash on Delivery (₹${total})</span>`;
+            const amountText = (checkoutShippingFee !== null) ? `(₹${total})` : `(₹${total} + Delivery)`;
+            btn.innerHTML = `<i data-lucide="banknote" class="w-4 h-4 text-brand-gold"></i><span id="place-order-btn-text">Confirm Order with Cash on Delivery ${amountText}</span>`;
         } else if (selectedMethod === 'manual_link') {
-            btn.innerHTML = `<i data-lucide="external-link" class="w-4 h-4 text-brand-gold"></i><span id="place-order-btn-text">Place Order &amp; Open Payment Profile (₹${total})</span>`;
+            const amountText = (checkoutShippingFee !== null) ? `(₹${total})` : `(₹${total} + Delivery)`;
+            btn.innerHTML = `<i data-lucide="external-link" class="w-4 h-4 text-brand-gold"></i><span id="place-order-btn-text">Place Order &amp; Open Payment Profile ${amountText}</span>`;
         }
         if (window.lucide) lucide.createIcons();
     }
@@ -309,6 +333,163 @@
             btn.disabled = false;
             updateSubmitButtonText();
         }
+    }
+
+    function resetShippingRateDisplay() {
+        checkoutShippingFee = null;
+        isPincodeServiceable = false;
+        const shippingEl = document.getElementById('co-shipping');
+        const subtextEl = document.getElementById('co-shipping-subtext');
+        const totalEl = document.getElementById('co-total');
+        if (shippingEl) {
+            shippingEl.innerHTML = '<span class="text-gray-400 font-normal text-xs">Enter PIN code</span>';
+            shippingEl.className = "font-normal text-gray-400 text-xs";
+        }
+        if (subtextEl) {
+            subtextEl.innerText = "Calculated via Shiprocket";
+        }
+        if (totalEl) {
+            totalEl.innerText = getCartSubtotal();
+        }
+        updateSubmitButtonText();
+    }
+
+    function onPincodeInput(val) {
+        const clean = (val || '').replace(/\D/g, '').slice(0, 6);
+        const pinInput = document.getElementById('cust-pincode');
+        if (pinInput && pinInput.value !== clean) {
+            pinInput.value = clean;
+        }
+        if (clean.length === 6) {
+            calculateShippingRate(clean);
+        } else {
+            const feedback = document.getElementById('checkout-pincode-feedback');
+            if (feedback && clean.length > 0) {
+                feedback.className = "text-[11px] text-gray-400 mt-1";
+                feedback.innerText = "Enter 6-digit delivery PIN code...";
+            } else if (feedback) {
+                feedback.innerText = "";
+            }
+            resetShippingRateDisplay();
+        }
+    }
+
+    function calculateShippingRate(pin) {
+        const cleanPin = (pin || document.getElementById('cust-pincode')?.value || '').trim();
+        if (!cleanPin || cleanPin.length !== 6 || !/^\d{6}$/.test(cleanPin)) {
+            resetShippingRateDisplay();
+            return;
+        }
+
+        const shippingEl = document.getElementById('co-shipping');
+        const subtextEl = document.getElementById('co-shipping-subtext');
+        const spinner = document.getElementById('pincode-spin');
+        const feedback = document.getElementById('checkout-pincode-feedback');
+        const cityInput = document.getElementById('cust-city');
+        const btn = document.getElementById('place-order-btn');
+        const cart = getCart();
+
+        if (cart.length === 0) return;
+
+        isCalculatingShipping = true;
+        if (spinner) spinner.classList.remove('hidden');
+        if (shippingEl) {
+            shippingEl.innerHTML = '<span class="animate-pulse text-amber-700 font-medium">Calculating...</span>';
+            shippingEl.className = "font-medium text-amber-700 text-xs";
+        }
+        if (subtextEl) subtextEl.innerText = "Checking couriers via Shiprocket...";
+        if (feedback) {
+            feedback.className = "text-[11px] text-amber-700 mt-1";
+            feedback.innerText = "Querying live courier rates...";
+        }
+        updateSubmitButtonText();
+
+        const selectedMethod = document.querySelector('input[name="payment_method"]:checked')?.value || 'razorpay';
+        const isCod = (selectedMethod === 'cod');
+
+        // Parallel city lookup if empty or default
+        if (cityInput && (!cityInput.value || cityInput.value === 'Satara / Pune / Mumbai')) {
+            fetch('/api/check-pincode', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ pincode: cleanPin })
+            })
+            .then(r => r.json())
+            .then(cData => {
+                if (cData && cData.city && cData.city !== 'Your Location') {
+                    cityInput.value = cData.city;
+                }
+            })
+            .catch(() => {});
+        }
+
+        fetch('/api/shipping/rate', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({
+                pincode: cleanPin,
+                items: cart,
+                is_cod: isCod
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            isCalculatingShipping = false;
+            if (spinner) spinner.classList.add('hidden');
+
+            if (data.serviceable && data.success) {
+                isPincodeServiceable = true;
+                checkoutShippingFee = Number(data.shippingCharge);
+                
+                if (shippingEl) {
+                    shippingEl.innerText = `₹${checkoutShippingFee}`;
+                    shippingEl.className = "font-bold text-gray-900";
+                }
+                if (subtextEl) {
+                    const cName = data.courier_name || 'Express Courier';
+                    const etd = data.etd ? ` • ${data.etd}` : '';
+                    subtextEl.innerText = `${cName}${etd}`;
+                }
+                if (feedback) {
+                    feedback.className = "text-[11px] font-semibold text-green-700 mt-1";
+                    feedback.innerText = `✓ Serviceable via ${data.courier_name || 'Shiprocket Courier'}${data.etd ? ' (' + data.etd + ')' : ''}`;
+                }
+
+                document.getElementById('co-total').innerText = getGrandTotal();
+                updateSubmitButtonText();
+            } else {
+                isPincodeServiceable = false;
+                checkoutShippingFee = null;
+
+                if (shippingEl) {
+                    shippingEl.innerHTML = '<span class="text-red-600 font-bold">Unavailable</span>';
+                    shippingEl.className = "font-bold text-red-600 text-xs";
+                }
+                if (subtextEl) {
+                    subtextEl.innerText = "No courier service available";
+                }
+                if (feedback) {
+                    feedback.className = "text-[11px] font-semibold text-red-600 mt-1";
+                    feedback.innerText = data.error || 'Delivery is currently unavailable for this PIN code.';
+                }
+
+                document.getElementById('co-total').innerText = getCartSubtotal();
+                updateSubmitButtonText();
+            }
+        })
+        .catch(err => {
+            console.error('Shipping rate calculation error:', err);
+            isCalculatingShipping = false;
+            if (spinner) spinner.classList.add('hidden');
+            if (shippingEl) {
+                shippingEl.innerHTML = '<span class="text-amber-700 font-medium">Unable to calculate</span>';
+            }
+            if (feedback) {
+                feedback.className = "text-[11px] font-semibold text-amber-700 mt-1";
+                feedback.innerText = "Could not connect to shipping service. Please check connection.";
+            }
+            updateSubmitButtonText();
+        });
     }
 
     function renderCheckoutPage() {
@@ -328,20 +509,6 @@
 
         const subtotal = getCartSubtotal();
         document.getElementById('co-subtotal').innerText = subtotal;
-
-        // Shipping fee logic: Free if >= 799, otherwise 60
-        checkoutShippingFee = subtotal >= 799 ? 0 : 60;
-        const shippingEl = document.getElementById('co-shipping');
-        if (checkoutShippingFee === 0) {
-            shippingEl.innerText = "FREE";
-            shippingEl.className = "font-bold text-green-700";
-        } else {
-            shippingEl.innerText = `₹${checkoutShippingFee}`;
-            shippingEl.className = "font-semibold text-gray-900";
-        }
-
-        const total = subtotal + checkoutShippingFee;
-        document.getElementById('co-total').innerText = total;
 
         // Build items HTML
         let html = '';
@@ -372,6 +539,14 @@
         const tomorrow = new Date();
         tomorrow.setDate(tomorrow.getDate() + 1);
         document.getElementById('cust-delivery-date').value = tomorrow.toISOString().split('T')[0];
+
+        // Check if pincode already entered
+        const pin = (document.getElementById('cust-pincode')?.value || '').trim();
+        if (pin.length === 6) {
+            calculateShippingRate(pin);
+        } else {
+            resetShippingRateDisplay();
+        }
 
         // Ensure button text reflects current payment choice & total
         handlePaymentChange(document.querySelector('input[name="payment_method"]:checked')?.value || 'razorpay');
@@ -416,34 +591,21 @@
             }
         }
 
-        updateSubmitButtonText();
+        const pin = (document.getElementById('cust-pincode')?.value || '').trim();
+        if (pin.length === 6) {
+            calculateShippingRate(pin);
+        } else {
+            updateSubmitButtonText();
+        }
     }
 
     function validateCheckoutPincode() {
-        const pin = document.getElementById('cust-pincode').value.trim();
-        const feedback = document.getElementById('checkout-pincode-feedback');
-        const cityInput = document.getElementById('cust-city');
-
-        if (!pin || pin.length !== 6) return;
-
-        fetch('/api/check-pincode', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ pincode: pin })
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.serviceable) {
-                feedback.className = "text-[11px] font-semibold text-green-700 mt-1";
-                feedback.innerText = `✓ ${data.message}`;
-                if (data.city && data.city !== 'Your Location') {
-                    cityInput.value = data.city;
-                }
-            } else {
-                feedback.className = "text-[11px] font-semibold text-red-600 mt-1";
-                feedback.innerText = data.message;
-            }
-        });
+        const pin = (document.getElementById('cust-pincode')?.value || '').trim();
+        if (pin.length === 6) {
+            calculateShippingRate(pin);
+        } else {
+            resetShippingRateDisplay();
+        }
     }
 
     function submitOrder(e) {
@@ -458,6 +620,24 @@
         const cart = getCart();
         if (cart.length === 0) {
             showToast('Empty Cart', 'Cart is empty. Please add sweets first.', 'warning');
+            return;
+        }
+
+        const pin = (document.getElementById('cust-pincode')?.value || '').trim();
+        if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
+            alert('Please enter a valid 6-digit delivery PIN code.');
+            document.getElementById('cust-pincode')?.focus();
+            return;
+        }
+
+        if (isCalculatingShipping) {
+            alert('Please wait a moment while delivery charges are being calculated via Shiprocket.');
+            return;
+        }
+
+        if (!isPincodeServiceable || checkoutShippingFee === null) {
+            alert('Delivery is currently unavailable for this PIN code. Please enter a serviceable delivery PIN code.');
+            document.getElementById('cust-pincode')?.focus();
             return;
         }
 

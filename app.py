@@ -563,7 +563,7 @@ def recalculate_order_items(items, conn):
             unit_price = int(round(box_price))
             prod_name = item.get('name', f"Custom Assorted Mithai Box ({weight})")
         else:
-            row = conn.execute("SELECT name, price_250g, price_500g, price_1kg, in_stock FROM products WHERE id = ?", (prod_id,)).fetchone()
+            row = conn.execute("SELECT name, price_250g, price_500g, price_1kg, in_stock, sku, weight_kg, length_cm, breadth_cm, height_cm FROM products WHERE id = ?", (prod_id,)).fetchone()
             if row:
                 prod_name = row['name']
                 if weight == '250g':
@@ -586,14 +586,79 @@ def recalculate_order_items(items, conn):
             'unit_price': unit_price,
             'item_total': item_total,
             'is_custom_box': is_custom,
-            'box_contents': item.get('box_contents') if is_custom else None
+            'box_contents': item.get('box_contents') if is_custom else None,
+            'sku': row['sku'] if (row and 'sku' in row.keys()) else None,
+            'weight_kg': row['weight_kg'] if (row and 'weight_kg' in row.keys() and row['weight_kg']) else None,
+            'length_cm': row['length_cm'] if (row and 'length_cm' in row.keys() and row['length_cm']) else None,
+            'breadth_cm': row['breadth_cm'] if (row and 'breadth_cm' in row.keys() and row['breadth_cm']) else None,
+            'height_cm': row['height_cm'] if (row and 'height_cm' in row.keys() and row['height_cm']) else None
         })
 
     return validated_items, subtotal
 
+@app.route('/api/shipping/rate', methods=['POST'])
+def api_shipping_rate():
+    """
+    Calculates dynamic delivery charges via Shiprocket courier serviceability.
+    Uses Satara origin pickup pincode and customer delivery destination pincode.
+    Never falls back to hardcoded ₹0 free delivery.
+    """
+    data = request.get_json() or {}
+    pincode = str(data.get('pincode', '')).strip()
+    is_cod = bool(data.get('is_cod', False))
+    raw_items = data.get('items', [])
+
+    if not pincode or len(pincode) != 6 or not pincode.isdigit():
+        return jsonify({
+            'success': False,
+            'serviceable': False,
+            'error': 'Please enter a valid 6-digit Indian PIN code.'
+        }), 400
+
+    conn = get_db()
+    validated_items, subtotal = recalculate_order_items(raw_items, conn)
+    conn.close()
+
+    if not validated_items:
+        return jsonify({
+            'success': False,
+            'serviceable': False,
+            'error': 'Cart is empty. Add sweets to calculate delivery.'
+        }), 400
+
+    import shiprocket_service
+    rate_res = shiprocket_service.calculate_shipping_rate(
+        delivery_pincode=pincode,
+        items_list=validated_items,
+        is_cod=is_cod,
+        subtotal=subtotal
+    )
+
+    if not rate_res.get('serviceable', True) or not rate_res.get('success', False):
+        return jsonify({
+            'success': False,
+            'serviceable': False,
+            'error': rate_res.get('error', 'Delivery is currently unavailable for this PIN code.')
+        }), 200
+
+    charge = int(rate_res.get('shippingCharge', 0))
+    return jsonify({
+        'success': True,
+        'serviceable': True,
+        'shippingCharge': charge,
+        'shipping_charge': charge,
+        'currency': rate_res.get('currency', 'INR'),
+        'courier_name': rate_res.get('courier_name', 'Express Courier Partner'),
+        'etd': rate_res.get('etd', '2-4 Days'),
+        'weight_kg': rate_res.get('weight_kg', 0.5),
+        'dimensions': rate_res.get('dimensions', {}),
+        'subtotal': subtotal,
+        'grand_total': max(0, subtotal + charge)
+    })
+
 @app.route('/api/orders', methods=['POST'])
 def api_create_order():
-    """Handles standard/COD order placements with server-side price validation."""
+    """Handles standard/COD order placements with dynamic Shiprocket delivery fee validation."""
     data = request.get_json() or {}
     items = data.get('items', [])
     if not items:
@@ -610,13 +675,29 @@ def api_create_order():
     # Recalculate totals server-side
     validated_items, subtotal = recalculate_order_items(items, conn)
     
-    # Free delivery on orders above 799, otherwise delivery fee
-    delivery_fee = 0 if subtotal >= 799 else int(delivery.get('fee', 60))
-    discount = int(data.get('discount', 0))
-    total_amount = max(0, subtotal + delivery_fee - discount)
-
     payment_method = payment.get('method', 'cod')
     payment_status = 'Pending' if payment_method == 'cod' else ('Paid' if payment_method in ['upi', 'card'] else 'Pending')
+
+    pincode = str(customer.get('pincode', '')).strip()
+    is_cod = (payment_method == 'cod')
+
+    # Authoritative server-side Shiprocket shipping calculation
+    import shiprocket_service
+    rate_res = shiprocket_service.calculate_shipping_rate(
+        delivery_pincode=pincode,
+        items_list=validated_items,
+        is_cod=is_cod,
+        subtotal=subtotal
+    )
+
+    if not rate_res.get('serviceable', True) and not rate_res.get('success', False):
+        conn.close()
+        return jsonify({'error': rate_res.get('error', 'Delivery is not available for this PIN code.')}), 400
+
+    delivery_fee = int(rate_res.get('shippingCharge', 0))
+    shipping_provider = rate_res.get('provider', 'shiprocket')
+    discount = int(data.get('discount', 0))
+    total_amount = max(0, subtotal + delivery_fee - discount)
 
     try:
         cursor.execute("""
@@ -625,9 +706,10 @@ def api_create_order():
                 address_line1, address_line2, city, state, pincode,
                 delivery_type, delivery_date, delivery_slot, gift_message,
                 payment_method, payment_status, subtotal, delivery_fee, discount,
-                total_amount, status, notes
+                total_amount, status, notes,
+                shipping_provider, shipping_charge, shipping_currency
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             order_id,
             customer.get('name', 'Customer'),
@@ -637,7 +719,7 @@ def api_create_order():
             customer.get('address2', ''),
             customer.get('city', ''),
             customer.get('state', ''),
-            customer.get('pincode', ''),
+            pincode,
             delivery.get('type', 'standard'),
             delivery.get('date', datetime.now().strftime('%Y-%m-%d')),
             delivery.get('slot', 'Standard (10 AM - 7 PM)'),
@@ -649,7 +731,10 @@ def api_create_order():
             discount,
             total_amount,
             'Confirmed',
-            data.get('notes', '')
+            data.get('notes', ''),
+            shipping_provider,
+            delivery_fee,
+            'INR'
         ))
 
         # Insert order items
@@ -692,6 +777,8 @@ def api_create_order():
     return jsonify({
         'success': True,
         'order_id': order_id,
+        'subtotal': subtotal,
+        'delivery_fee': delivery_fee,
         'total_amount': total_amount,
         'payment_status': payment_status,
         'whatsapp_url': wa_url,
@@ -715,7 +802,8 @@ def api_razorpay_create_order():
     if not items:
         return jsonify({'error': 'Cart is empty. Please add items before checking out.'}), 400
 
-    if not customer.get('name') or not customer.get('phone') or not customer.get('address1') or not customer.get('pincode'):
+    pincode = str(customer.get('pincode', '')).strip()
+    if not customer.get('name') or not customer.get('phone') or not customer.get('address1') or not pincode:
         return jsonify({'error': 'Please provide all required delivery details (name, phone, address, and pincode).'}), 400
 
     conn = get_db()
@@ -728,8 +816,21 @@ def api_razorpay_create_order():
         conn.close()
         return jsonify({'error': 'Invalid order items or amounts.'}), 400
 
-    # Free delivery on orders above 799, otherwise delivery fee
-    delivery_fee = 0 if subtotal >= 799 else int(delivery.get('fee', 60))
+    # Dynamically calculate delivery fee via Shiprocket
+    import shiprocket_service
+    rate_res = shiprocket_service.calculate_shipping_rate(
+        delivery_pincode=pincode,
+        items_list=validated_items,
+        is_cod=False,
+        subtotal=subtotal
+    )
+
+    if not rate_res.get('serviceable', True) and not rate_res.get('success', False):
+        conn.close()
+        return jsonify({'error': rate_res.get('error', 'Delivery is not available for this PIN code.')}), 400
+
+    delivery_fee = int(rate_res.get('shippingCharge', 0))
+    shipping_provider = rate_res.get('provider', 'shiprocket')
     discount = int(data.get('discount', 0))
     total_amount = max(1, subtotal + delivery_fee - discount)
     amount_in_paise = int(total_amount * 100)
@@ -751,7 +852,10 @@ def api_razorpay_create_order():
                     'customer_email': customer.get('email', ''),
                     'customer_address': customer.get('address1', ''),
                     'customer_city': customer.get('city', ''),
-                    'customer_pincode': customer.get('pincode', '')
+                    'customer_pincode': pincode,
+                    'subtotal': str(subtotal),
+                    'delivery_fee': str(delivery_fee),
+                    'shipping_provider': shipping_provider
                 }
             }
             rzp_order = client.order.create(rzp_payload)
@@ -775,9 +879,10 @@ def api_razorpay_create_order():
                 address_line1, address_line2, city, state, pincode,
                 delivery_type, delivery_date, delivery_slot, gift_message,
                 payment_method, payment_status, subtotal, delivery_fee, discount,
-                total_amount, status, notes, razorpay_order_id
+                total_amount, status, notes, razorpay_order_id,
+                shipping_provider, shipping_charge, shipping_currency
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'razorpay', 'Payment Initiated', ?, ?, ?, ?, 'Pending', ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'razorpay', 'Payment Initiated', ?, ?, ?, ?, 'Pending', ?, ?, ?, ?, ?)
         """, (
             order_id,
             customer.get('name', 'Customer'),
@@ -787,7 +892,7 @@ def api_razorpay_create_order():
             customer.get('address2', ''),
             customer.get('city', ''),
             customer.get('state', ''),
-            customer.get('pincode', ''),
+            pincode,
             delivery.get('type', 'standard'),
             delivery.get('date', datetime.now().strftime('%Y-%m-%d')),
             delivery.get('slot', 'Standard Express'),
@@ -797,7 +902,10 @@ def api_razorpay_create_order():
             discount,
             total_amount,
             data.get('notes', ''),
-            razorpay_order_id
+            razorpay_order_id,
+            shipping_provider,
+            delivery_fee,
+            'INR'
         ))
 
         # Insert items
@@ -835,6 +943,9 @@ def api_razorpay_create_order():
         'razorpay_order_id': razorpay_order_id,
         'amount': amount_in_paise,
         'amount_in_rupees': total_amount,
+        'total_amount': total_amount,
+        'subtotal': subtotal,
+        'delivery_fee': delivery_fee,
         'currency': 'INR',
         'key_id': RAZORPAY_KEY_ID,
         'business_name': 'Mama Pedhewale (मामा कंदी पेढेवाले)',
@@ -1202,6 +1313,48 @@ def api_admin_update_product_prices(product_id):
         'price_1kg': p1kg,
         'message': f"Prices updated for {prod['name']}."
     })
+
+@app.route('/api/admin/product/<product_id>/shipping-spec', methods=['POST'])
+def api_admin_update_product_shipping_spec(product_id):
+    """
+    Updates logistics dimensions and weight specification for a product.
+    """
+    if not session.get('admin_logged_in'):
+        return jsonify({'error': 'Unauthorized access. Please login.'}), 401
+    
+    if not session.get('is_super_admin'):
+        return jsonify({'error': 'Super Admin privileges required.'}), 403
+
+    data = request.get_json() or {}
+    conn = get_db()
+    cursor = conn.cursor()
+    prod = conn.execute("SELECT * FROM products WHERE id = ?", (product_id,)).fetchone()
+    if not prod:
+        conn.close()
+        return jsonify({'error': 'Product not found.'}), 404
+
+    try:
+        sku = str(data.get('sku', '') or '').strip() or None
+        weight_kg = float(data.get('weight_kg', 0.5))
+        length_cm = float(data.get('length_cm', 15.0))
+        breadth_cm = float(data.get('breadth_cm', 15.0))
+        height_cm = float(data.get('height_cm', 10.0))
+
+        cursor.execute("""
+            UPDATE products
+            SET sku = ?, weight_kg = ?, length_cm = ?, breadth_cm = ?, height_cm = ?
+            WHERE id = ?
+        """, (sku, weight_kg, length_cm, breadth_cm, height_cm, product_id))
+        conn.commit()
+        conn.close()
+        return jsonify({
+            'success': True,
+            'product_id': product_id,
+            'message': f"Shipping specifications updated for {prod['name']}."
+        })
+    except Exception as e:
+        conn.close()
+        return jsonify({'error': f"Failed to update shipping specifications: {str(e)}"}), 400
 
 # ==================== SHIPROCKET SHIPPING & LOGISTICS API ====================
 

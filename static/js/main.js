@@ -1,7 +1,6 @@
 // Mama Pedhewale - Main Client Script
 
 const CART_STORAGE_KEY = 'mama_pedhewale_cart';
-const FREE_SHIPPING_THRESHOLD = 799;
 
 // ==================== CART MANAGEMENT ====================
 
@@ -113,26 +112,10 @@ function renderCartDrawer() {
 
     const subtotal = getCartSubtotal();
 
-    // Free delivery calculation
-    if (subtotal >= FREE_SHIPPING_THRESHOLD) {
-        if (freeDeliveryMsg) {
-            freeDeliveryMsg.innerHTML = `<span class="text-green-800 font-semibold flex items-center gap-1.5"><i data-lucide="sparkles" class="w-4 h-4 text-brand-gold"></i> Congratulations! You've unlocked <strong>FREE Express Shipping</strong>!</span>`;
-        }
-        if (freeDeliveryProgress) {
-            freeDeliveryProgress.style.width = '100%';
-            freeDeliveryProgress.classList.add('bg-green-600');
-        }
-    } else {
-        const needed = FREE_SHIPPING_THRESHOLD - subtotal;
-        if (freeDeliveryLeft) freeDeliveryLeft.innerText = needed;
-        if (freeDeliveryMsg) {
-            freeDeliveryMsg.innerHTML = `<span>Add ₹<strong>${needed}</strong> more for <strong>FREE Express Shipping</strong>!</span><i data-lucide="truck" class="w-4 h-4 text-brand-maroon"></i>`;
-        }
-        if (freeDeliveryProgress) {
-            const pct = Math.min(100, Math.round((subtotal / FREE_SHIPPING_THRESHOLD) * 100));
-            freeDeliveryProgress.style.width = `${pct}%`;
-            freeDeliveryProgress.classList.remove('bg-green-600');
-        }
+    // Shipping dispatch note
+    if (freeDeliveryMsg) {
+        freeDeliveryMsg.innerHTML = `<span class="flex items-center gap-1.5"><i data-lucide="truck" class="w-4 h-4 text-brand-maroon"></i> Direct Satara Dispatch</span><span class="text-[11px] text-brand-golddark font-semibold">Live Courier Rates</span>`;
+        if (window.lucide) lucide.createIcons();
     }
 
     if (subtotalEl) subtotalEl.innerText = subtotal;

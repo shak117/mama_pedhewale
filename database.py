@@ -230,11 +230,28 @@ def init_db():
         ("shipped_at", "TIMESTAMP"),
         ("delivered_at", "TIMESTAMP"),
         ("shiprocket_created_at", "TIMESTAMP"),
-        ("shiprocket_updated_at", "TIMESTAMP")
+        ("shiprocket_updated_at", "TIMESTAMP"),
+        ("shipping_provider", "TEXT DEFAULT 'shiprocket'"),
+        ("shipping_charge", "REAL DEFAULT 0.0"),
+        ("shipping_currency", "TEXT DEFAULT 'INR'")
     ]
     for col_name, col_type in shiprocket_columns:
         try:
             cursor.execute(f"ALTER TABLE orders ADD COLUMN {col_name} {col_type}")
+        except Exception:
+            pass
+
+    # Ensure product shipping specification columns exist in products table
+    product_shipping_columns = [
+        ("sku", "TEXT"),
+        ("weight_kg", "REAL DEFAULT 0.5"),
+        ("length_cm", "REAL DEFAULT 15.0"),
+        ("breadth_cm", "REAL DEFAULT 15.0"),
+        ("height_cm", "REAL DEFAULT 10.0")
+    ]
+    for col_name, col_type in product_shipping_columns:
+        try:
+            cursor.execute(f"ALTER TABLE products ADD COLUMN {col_name} {col_type}")
         except Exception:
             pass
 

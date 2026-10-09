@@ -181,6 +181,38 @@ def calculate_order_weight(items):
     packed_weight = total_kg + 0.1
     return round(max(DEFAULT_MIN_WEIGHT_KG, packed_weight), 2)
 
+def calculate_package_dimensions(items):
+    """
+    Calculates outer shipping carton dimensions (in cm) for single or multiple items.
+    Standard Indian sweets gift boxes are 15x15x10 cm.
+    Multiple items stack into a sensible outer shipping carton without exceeding carrier limits.
+    """
+    total_boxes = 0
+    max_length = DEFAULT_PACKAGE_LENGTH
+    max_breadth = DEFAULT_PACKAGE_BREADTH
+
+    for item in items:
+        qty = int(item.get('quantity', 1) or 1)
+        total_boxes += qty
+        try:
+            if item.get('length_cm'):
+                max_length = max(max_length, float(item['length_cm']))
+            if item.get('breadth_cm'):
+                max_breadth = max(max_breadth, float(item['breadth_cm']))
+        except (ValueError, TypeError):
+            pass
+
+    # Stacking logic: 2 boxes per layer in shipping carton
+    layers = max(1, (total_boxes + 1) // 2)
+    package_height = min(50.0, DEFAULT_PACKAGE_HEIGHT * layers)
+    package_length = max_length if total_boxes <= 2 else max(max_length, 30.0)
+
+    return {
+        'length': round(package_length, 1),
+        'breadth': round(max_breadth, 1),
+        'height': round(package_height, 1)
+    }
+
 def create_shiprocket_order(order_dict, items_list):
     """
     Creates a new custom ad-hoc shipment in Shiprocket for a confirmed Mama Pedhewale order.
@@ -308,9 +340,10 @@ def create_shiprocket_order(order_dict, items_list):
 
 # ==================== COURIER SERVICEABILITY & ASSIGNMENT ====================
 
-def check_courier_serviceability(pickup_pincode=None, delivery_pincode=None, weight=0.5, is_cod=False):
+def check_courier_serviceability(pickup_pincode=None, delivery_pincode=None, weight=0.5, is_cod=False,
+                                 length=None, breadth=None, height=None, order_value=0):
     """
-    Checks courier serviceability and rates for a given route and parcel weight.
+    Checks courier serviceability and rates for a given route, parcel weight, and dimensions.
     """
     cfg = get_config()
     pickup_pin = str(pickup_pincode or cfg.get('pickup_pincode') or DEFAULT_PICKUP_PINCODE).strip()
@@ -320,9 +353,17 @@ def check_courier_serviceability(pickup_pincode=None, delivery_pincode=None, wei
         'weight': str(weight or DEFAULT_MIN_WEIGHT_KG),
         'cod': 1 if is_cod else 0
     }
+    if length:
+        params['length'] = str(length)
+    if breadth:
+        params['breadth'] = str(breadth)
+    if height:
+        params['height'] = str(height)
+    if order_value:
+        params['order_sub_total'] = str(order_value)
 
     res = shiprocket_request('GET', '/courier/serviceability/', params=params)
-    data = res.get('data', {})
+    data = res.get('data', {}) if isinstance(res, dict) else {}
     available_couriers = data.get('available_courier_companies', [])
 
     normalized = []
@@ -336,14 +377,119 @@ def check_courier_serviceability(pickup_pincode=None, delivery_pincode=None, wei
             'cod_charges': float(c.get('cod_charges') or 0.0)
         })
 
-    # Sort by best rate
-    normalized.sort(key=lambda x: x['rate'])
+    # Sort by best rate (cheapest first), tie-broken by highest rating
+    normalized.sort(key=lambda x: (x['rate'], -x['rating']))
     return {
         'success': True,
-        'delivery_pincode': delivery_pincode,
+        'pickup_pincode': pickup_pin,
+        'delivery_pincode': str(delivery_pincode).strip(),
         'couriers': normalized,
         'count': len(normalized)
     }
+
+def calculate_shipping_rate(delivery_pincode, items_list, is_cod=False, subtotal=0):
+    """
+    Dynamically calculates shipping charges via Shiprocket courier serviceability API.
+    Uses configured Mama Pedhewale pickup pincode and customer delivery pincode.
+    Selects the best applicable courier and returns calculated delivery fee.
+    """
+    pincode = str(delivery_pincode or '').strip()
+    if not pincode or len(pincode) != 6 or not pincode.isdigit():
+        return {
+            'success': False,
+            'serviceable': False,
+            'error': 'Please enter a valid 6-digit Indian PIN code.'
+        }
+
+    weight = calculate_order_weight(items_list)
+    dims = calculate_package_dimensions(items_list)
+    cfg = get_config()
+    pickup_pin = str(cfg.get('pickup_pincode') or DEFAULT_PICKUP_PINCODE).strip()
+
+    if is_configured():
+        try:
+            res = check_courier_serviceability(
+                pickup_pincode=pickup_pin,
+                delivery_pincode=pincode,
+                weight=weight,
+                is_cod=is_cod,
+                length=dims['length'],
+                breadth=dims['breadth'],
+                height=dims['height'],
+                order_value=subtotal
+            )
+            couriers = res.get('couriers', [])
+            if couriers:
+                best_courier = couriers[0]
+                base_rate = float(best_courier['rate'])
+                cod_fee = float(best_courier.get('cod_charges', 0.0)) if is_cod else 0.0
+                total_shipping_charge = int(round(base_rate + cod_fee))
+
+                return {
+                    'success': True,
+                    'serviceable': True,
+                    'shippingCharge': total_shipping_charge,
+                    'shipping_charge': total_shipping_charge,
+                    'currency': 'INR',
+                    'courier_name': best_courier.get('courier_name'),
+                    'courier_company_id': best_courier.get('courier_company_id'),
+                    'etd': best_courier.get('etd'),
+                    'rating': best_courier.get('rating'),
+                    'weight_kg': weight,
+                    'dimensions': dims,
+                    'pickup_pincode': pickup_pin,
+                    'delivery_pincode': pincode,
+                    'provider': 'shiprocket'
+                }
+            else:
+                return {
+                    'success': False,
+                    'serviceable': False,
+                    'error': 'Delivery is currently unavailable for this PIN code.',
+                    'pickup_pincode': pickup_pin,
+                    'delivery_pincode': pincode
+                }
+        except ShiprocketError as e:
+            logger.error(f"Shiprocket rate calculation error for pincode {pincode}: {e}")
+            return {
+                'success': False,
+                'serviceable': False,
+                'error': 'Unable to calculate delivery charges. Please try again.',
+                'details': str(e)
+            }
+        except Exception as ex:
+            logger.error(f"Unexpected error calculating Shiprocket rate for pincode {pincode}: {ex}")
+            return {
+                'success': False,
+                'serviceable': False,
+                'error': 'Unable to calculate delivery charges. Please try again.'
+            }
+    else:
+        # Fallback when Shiprocket credentials are not configured on server (e.g. local dev / automated test suite)
+        logger.warning(f"Shiprocket credentials not configured. Using standard delivery rate calculation for {pincode}.")
+        is_satara = pincode.startswith('415')
+        base_rate = 50 if is_satara else (60 if pincode.startswith('41') or pincode.startswith('42') or pincode.startswith('40') else 80)
+        if weight > 1.0:
+            extra_kg = weight - 1.0
+            base_rate += int(extra_kg * 40)
+        if is_cod:
+            base_rate += 30
+
+        return {
+            'success': True,
+            'serviceable': True,
+            'shippingCharge': base_rate,
+            'shipping_charge': base_rate,
+            'currency': 'INR',
+            'courier_name': 'Shiprocket Courier Partner (Standard)',
+            'etd': '1-2 Days' if is_satara else '3-4 Days',
+            'weight_kg': weight,
+            'dimensions': dims,
+            'pickup_pincode': pickup_pin,
+            'delivery_pincode': pincode,
+            'provider': 'standard_fallback',
+            'is_fallback': True
+        }
 
 def assign_courier(shipment_id, courier_id=None):
     """

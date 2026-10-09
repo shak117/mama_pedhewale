@@ -124,8 +124,9 @@ class MamaPedhewaleTests(unittest.TestCase):
         self.assertTrue(data['success'])
         order_id = data['order_id']
         self.assertTrue(order_id.startswith('MP-'))
-        # 360*2 + 500*1 = 1220
-        self.assertEqual(data['total_amount'], 1220)
+        # 360*2 + 500*1 = 1220 subtotal + dynamic delivery fee
+        self.assertGreater(data.get('delivery_fee', 0), 0)
+        self.assertEqual(data['total_amount'], 1220 + data['delivery_fee'])
 
         # Verify order success page
         success_resp = self.client.get(f'/order-success/{order_id}')
@@ -390,9 +391,16 @@ class MamaPedhewaleTests(unittest.TestCase):
         data = resp.get_json()
         self.assertTrue(data['success'])
         
-        # Expected total must be based on server-side real_price * 2
+        # Expected total must be based on server-side real_price * 2 + dynamic delivery fee
         expected_subtotal = real_price * 2
-        expected_delivery = 60 if expected_subtotal < 799 else 0
+        import shiprocket_service
+        rate_info = shiprocket_service.calculate_shipping_rate(
+            delivery_pincode='415001',
+            items_list=[{'product_id': 'satara-kandi-pedha', 'weight': '500g', 'quantity': 2}],
+            is_cod=True,
+            subtotal=expected_subtotal
+        )
+        expected_delivery = rate_info['shippingCharge']
         expected_total = expected_subtotal + expected_delivery
         self.assertEqual(data['total_amount'], expected_total)
         self.assertNotEqual(data['total_amount'], 2 + 60)
@@ -1368,6 +1376,216 @@ class MamaPedhewaleTests(unittest.TestCase):
                 content_type='application/json')
             self.assertEqual(root_webhook_resp.status_code, 200)
             self.assertEqual(root_webhook_resp.get_json()['status'], 'ok')
+
+    def test_36_dynamic_shipping_rate_api(self):
+        items = [{'product_id': 'satara-kandi-pedha', 'weight': '500g', 'quantity': 1}]
+
+        # 1. Invalid PIN codes
+        resp_inv = self.client.post('/api/shipping/rate',
+            data=json.dumps({'pincode': '123', 'items': items}),
+            content_type='application/json')
+        self.assertEqual(resp_inv.status_code, 400)
+
+        # 2. Empty cart
+        resp_empty = self.client.post('/api/shipping/rate',
+            data=json.dumps({'pincode': '415001', 'items': []}),
+            content_type='application/json')
+        self.assertEqual(resp_empty.status_code, 400)
+
+        # 3. Valid Satara PIN code (415001)
+        resp_satara = self.client.post('/api/shipping/rate',
+            data=json.dumps({'pincode': '415001', 'items': items}),
+            content_type='application/json')
+        self.assertEqual(resp_satara.status_code, 200)
+        data_satara = resp_satara.get_json()
+        self.assertTrue(data_satara['success'])
+        self.assertTrue(data_satara['serviceable'])
+        self.assertGreater(data_satara['shippingCharge'], 0)
+        self.assertEqual(data_satara['currency'], 'INR')
+        self.assertEqual(data_satara['grand_total'], data_satara['subtotal'] + data_satara['shippingCharge'])
+
+        # 4. Valid Mumbai PIN code (400001)
+        resp_mumbai = self.client.post('/api/shipping/rate',
+            data=json.dumps({'pincode': '400001', 'items': items}),
+            content_type='application/json')
+        self.assertEqual(resp_mumbai.status_code, 200)
+        data_mumbai = resp_mumbai.get_json()
+        self.assertTrue(data_mumbai['success'])
+        self.assertTrue(data_mumbai['serviceable'])
+        self.assertGreater(data_mumbai['shippingCharge'], 0)
+
+    def test_37_no_free_shipping_above_799(self):
+        """
+        Orders above Rs 799 must NOT receive free shipping.
+        The customer must pay the actual calculated Shiprocket shipping charge.
+        """
+        order_payload = {
+            'customer': {
+                'name': 'Amit Patil',
+                'phone': '9822001122',
+                'email': 'amit@example.com',
+                'address1': 'Shivaji Chowk',
+                'city': 'Satara',
+                'state': 'Maharashtra',
+                'pincode': '415001'
+            },
+            'delivery': {'fee': 0},
+            'payment': {'method': 'upi'},
+            'items': [
+                {'product_id': 'satara-kandi-pedha', 'weight': '1kg', 'quantity': 2}
+            ]
+        }
+
+        resp = self.client.post('/api/orders',
+            data=json.dumps(order_payload),
+            content_type='application/json')
+        self.assertEqual(resp.status_code, 200)
+        data = resp.get_json()
+        self.assertTrue(data['success'])
+
+        order_id = data['order_id']
+        conn = get_db()
+        order = conn.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+        conn.close()
+
+        self.assertGreater(order['delivery_fee'], 0)
+        self.assertGreater(order['subtotal'], 799)
+        self.assertEqual(order['total_amount'], order['subtotal'] + order['delivery_fee'])
+        self.assertNotEqual(order['delivery_fee'], 0)
+        self.assertIn(order['shipping_provider'], ['shiprocket', 'standard_fallback'])
+
+    def test_38_razorpay_includes_shiprocket_delivery_charge(self):
+        """
+        Razorpay order creation must charge the customer (amount_in_paise)
+        the sum of subtotal + dynamic Shiprocket delivery fee.
+        """
+        order_data = {
+            'customer': {
+                'name': 'Sunil Jadhav',
+                'phone': '9822334455',
+                'email': 'sunil@example.com',
+                'address1': 'Powai Naka',
+                'city': 'Satara',
+                'state': 'Maharashtra',
+                'pincode': '415001'
+            },
+            'delivery': {'fee': 0},
+            'payment': {'method': 'razorpay'},
+            'items': [
+                {'product_id': 'satara-kandi-pedha', 'weight': '500g', 'quantity': 1}
+            ]
+        }
+
+        test_secret = 'test_secret_key_12345'
+        test_key_id = 'rzp_test_samplekey123'
+        mock_client = MagicMock()
+        mock_client.order.create.return_value = {'id': 'order_fake_rzp_dynamic'}
+
+        with patch('app.RAZORPAY_KEY_ID', test_key_id), \
+             patch('app.RAZORPAY_KEY_SECRET', test_secret), \
+             patch('app.get_razorpay_client', return_value=mock_client):
+
+            resp = self.client.post('/api/payments/razorpay/create-order',
+                data=json.dumps(order_data),
+                content_type='application/json')
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertTrue(data['success'])
+
+            subtotal = data['subtotal']
+            delivery_fee = data['delivery_fee']
+            self.assertGreater(subtotal, 0)
+            self.assertGreater(delivery_fee, 0)
+            self.assertEqual(data['total_amount'], subtotal + delivery_fee)
+
+            expected_paise = (subtotal + delivery_fee) * 100
+            self.assertEqual(data['amount'], expected_paise)
+            
+            create_call_args = mock_client.order.create.call_args[0][0]
+            self.assertEqual(create_call_args['amount'], expected_paise)
+
+    def test_39_shiprocket_api_courier_serviceability_live_mock(self):
+        """
+        When Shiprocket credentials are fully configured, queries Shiprocket /courier/serviceability/
+        and selects the cheapest available courier freight rate.
+        """
+        mock_sr_resp = MagicMock()
+        mock_sr_resp.status_code = 200
+        mock_sr_resp.json.return_value = {
+            'status': 200,
+            'data': {
+                'available_courier_companies': [
+                    {
+                        'courier_company_id': 12,
+                        'courier_name': 'Blue Dart Air',
+                        'rate': 95.0,
+                        'rating': 4.5,
+                        'etd': '2 Days',
+                        'cod_charges': 0
+                    },
+                    {
+                        'courier_company_id': 24,
+                        'courier_name': 'Delhivery Surface',
+                        'rate': 68.0,
+                        'rating': 4.2,
+                        'etd': '3 Days',
+                        'cod_charges': 0
+                    }
+                ]
+            }
+        }
+
+        with patch('shiprocket_service.is_configured', return_value=True), \
+             patch('shiprocket_service.get_shiprocket_token', return_value='test_token_sr'), \
+             patch('requests.request', return_value=mock_sr_resp):
+
+            resp = self.client.post('/api/shipping/rate',
+                data=json.dumps({
+                    'pincode': '415001',
+                    'items': [{'product_id': 'satara-kandi-pedha', 'weight': '500g', 'quantity': 1}]
+                }),
+                content_type='application/json')
+            self.assertEqual(resp.status_code, 200)
+            data = resp.get_json()
+            self.assertTrue(data['success'])
+            self.assertTrue(data['serviceable'])
+            # Cheapest courier should be Delhivery Surface at 68
+            self.assertEqual(data['shippingCharge'], 68)
+            self.assertEqual(data['courier_name'], 'Delhivery Surface')
+
+    def test_40_admin_update_product_shipping_spec(self):
+        # 1. Unauthorized
+        with self.client.session_transaction() as sess:
+            sess.clear()
+
+        resp_unauth = self.client.post('/api/admin/product/satara-kandi-pedha/shipping-spec',
+            data=json.dumps({'weight_kg': 0.6}),
+            content_type='application/json')
+        self.assertEqual(resp_unauth.status_code, 401)
+
+        # 2. Super admin authorized
+        with self.client.session_transaction() as sess:
+            sess['admin_logged_in'] = True
+            sess['is_super_admin'] = True
+
+        resp_auth = self.client.post('/api/admin/product/satara-kandi-pedha/shipping-spec',
+            data=json.dumps({
+                'sku': 'MP-SKP-500',
+                'weight_kg': 0.65,
+                'length_cm': 16.0,
+                'breadth_cm': 16.0,
+                'height_cm': 11.0
+            }),
+            content_type='application/json')
+        self.assertEqual(resp_auth.status_code, 200)
+        self.assertTrue(resp_auth.get_json()['success'])
+
+        conn = get_db()
+        prod = conn.execute("SELECT sku, weight_kg, length_cm FROM products WHERE id = 'satara-kandi-pedha'").fetchone()
+        conn.close()
+        self.assertEqual(prod['sku'], 'MP-SKP-500')
+        self.assertEqual(prod['weight_kg'], 0.65)
+        self.assertEqual(prod['length_cm'], 16.0)
 
 if __name__ == '__main__':
     unittest.main()

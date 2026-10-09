@@ -46,10 +46,10 @@
                 </div>
                 <div class="flex justify-between">
                     <span>Shipping</span>
-                    <span id="fc-shipping" class="font-semibold text-green-700">Calculated next step</span>
+                    <span id="fc-shipping" class="font-medium text-gray-500">Calculated at checkout</span>
                 </div>
                 <div class="pt-3 border-t border-gray-200 flex justify-between text-base font-bold text-gray-900">
-                    <span class="font-serif">Estimated Total</span>
+                    <span class="font-serif">Subtotal</span>
                     <span class="font-serif text-xl text-brand-maroon">₹<span id="fc-total">0</span></span>
                 </div>
             </div>
@@ -66,7 +66,7 @@
             </div>
 
             <div class="text-[11px] text-gray-500 pt-3 border-t border-gray-100 text-center">
-                Free shipping on all orders over ₹799.
+                Actual delivery charges dynamically calculated at checkout based on destination PIN code via Shiprocket.
             </div>
         </div>
 
@@ -102,9 +102,8 @@
         countEl.innerText = count;
         subtotalEl.innerText = subtotal;
         
-        const ship = subtotal >= 799 ? 0 : 60;
-        shippingEl.innerText = ship === 0 ? "FREE" : `₹${ship}`;
-        totalEl.innerText = subtotal + ship;
+        shippingEl.innerText = "Calculated at checkout";
+        totalEl.innerText = subtotal;
 
         let html = '';
         cart.forEach((item, idx) => {
